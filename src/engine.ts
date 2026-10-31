@@ -99,6 +99,58 @@ function sources(ids: string[], profile: Profile): Evidence[] {
 const PRIVATE_REQUEST = /\b(salary|compensation|pay|wage|home address|street address|phone number|passport|social security|ssn|date of birth|birth date|age|marital status|religion|medical|health|family|children|personal email)\b/i;
 const FOLLOW_UP = 'What role, technology stack, and scale are you hiring for?';
 
+export interface CareerSearchResult {
+  skills: Profile['skills'];
+  projects: Profile['projects'];
+  evidence: Evidence[];
+}
+
+/** Look up only complete published skill, project, and stack terms. */
+export function searchCareer(query: string, profile: Profile): CareerSearchResult {
+  const normalizedQuery = normalize(query);
+  const padded = ` ${normalizedQuery} `;
+  const matches = (term: string): boolean => {
+    const normalized = normalize(term);
+    return normalized.length > 0 && (normalized.length >= 2 || normalizedQuery === normalized) && padded.includes(` ${normalized} `);
+  };
+  const skills = profile.skills.filter((skill) => matches(skill.name));
+  const projects = profile.projects.filter((project) => [project.name, ...project.stack].some(matches));
+  return { skills, projects, evidence: sources([...skills, ...projects].flatMap((item) => item.evidenceIds), profile) };
+}
+
+export type InterviewStep = 'role' | 'stack' | 'scale' | 'priorities' | 'complete';
+type InterviewAnswerStep = Exclude<InterviewStep, 'complete'>;
+export interface InterviewState {
+  step: InterviewStep;
+  answers: Partial<Record<InterviewAnswerStep, string>>;
+}
+export interface InterviewTurn { state: InterviewState; text: string; followUp?: string }
+
+const INTERVIEW_QUESTIONS: Record<InterviewAnswerStep, string> = {
+  role: 'What role are you hiring for?',
+  stack: 'Which technologies or stack matter for this role?',
+  scale: 'What scale or workload should the candidate expect?',
+  priorities: 'Which outcomes or priorities matter most?',
+};
+const NEXT_INTERVIEW_STEP: Record<InterviewAnswerStep, InterviewStep> = {
+  role: 'stack', stack: 'scale', scale: 'priorities', priorities: 'complete',
+};
+
+/** Interview answers stay in the state owned by the caller; nothing is persisted. */
+export function startInterview(): InterviewTurn {
+  return { state: { step: 'role', answers: {} }, text: 'Let’s learn a little about the role. You can reply “skip” to any question.', followUp: INTERVIEW_QUESTIONS.role };
+}
+export function advanceInterview(state: InterviewState, input: string): InterviewTurn {
+  if (state.step === 'complete') return { state, text: 'The role questions are complete. You can ask about the public evidence.' };
+  const reply = input.trim();
+  if (!reply || reply.length > 500) return { state, text: 'Please enter a reply of 1–500 characters, or type “skip”.', followUp: INTERVIEW_QUESTIONS[state.step] };
+  const answers = { ...state.answers, [state.step]: normalize(reply) === 'skip' ? '' : reply };
+  const step = NEXT_INTERVIEW_STEP[state.step];
+  const next: InterviewState = { step, answers };
+  if (step === 'complete') return { state: next, text: 'Thanks for sharing the role context. You can now explore the public evidence.' };
+  return { state: next, text: 'Thanks. You can also reply “skip”.', followUp: INTERVIEW_QUESTIONS[step] };
+}
+
 /** No inference: authored exact answers first, then clearly labelled related project text. */
 export function answerQuestion(question: string, profile: Profile): Answer {
   const query = normalize(question);
@@ -106,6 +158,13 @@ export function answerQuestion(question: string, profile: Profile): Answer {
   if (PRIVATE_REQUEST.test(query)) return { kind: 'private', text: 'I can only discuss information the candidate chose to publish. Please contact them directly about private details.', evidence: [] };
   const exact = profile.faq.find((entry) => entry.questions.some((item) => normalize(item) === query));
   if (exact) return { kind: 'answer', text: exact.answer, evidence: sources(exact.evidenceIds, profile), followUp: exact.followUp };
+  const skillQuestions = ['what skills do you have', 'which skills do you have', 'what tools have you used', 'what is your technology stack'];
+  if (skillQuestions.includes(query) && profile.skills.length) return {
+    kind: 'answer',
+    text: `The public profile lists these skills: ${profile.skills.map((skill) => skill.name).join(', ')}.`,
+    evidence: sources(profile.skills.flatMap((skill) => skill.evidenceIds), profile),
+    followUp: 'Which skills are most important for the role?',
+  };
   // Only match a complete project name or stack item. Do not infer a yes/no answer
   // or silently present loosely related text as proof of the question's premise.
   const padded = ` ${query} `;

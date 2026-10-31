@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import profileData from './fixtures/sample-profile.json';
 import configuredProfile from '../src/data/profile.json';
-import { answerQuestion, validateProfile } from '../src/engine';
+import { advanceInterview, answerQuestion, searchCareer, startInterview, validateProfile } from '../src/engine';
 
 const profile = validateProfile(profileData);
 
@@ -68,5 +68,63 @@ describe('public profile validation', () => {
     const sources = structuredClone(profileData);
     sources.evidence[1]!.id = sources.evidence[0]!.id;
     expect(() => validateProfile(sources)).toThrow('Duplicate evidence id');
+  });
+});
+
+describe('structured evidence search', () => {
+  it('returns matching public skills and projects with their sources', () => {
+    const result = searchCareer('Java', profile);
+    expect(result.skills.map((skill) => skill.name)).toEqual(['Java']);
+    expect(result.projects.map((project) => project.name)).toEqual(['Order Service', 'Event Pipeline']);
+    expect(result.evidence.map((source) => source.id)).toEqual(['orders', 'events']);
+  });
+
+  it('does not match partial names or invent unsupported skills', () => {
+    expect(searchCareer('JavaScript', profile)).toEqual({ skills: [], projects: [], evidence: [] });
+    expect(searchCareer('Kubernetes', profile)).toEqual({ skills: [], projects: [], evidence: [] });
+    const withShortTerms = structuredClone(profile);
+    withShortTerms.skills.push({ name: 'Go', category: 'Languages', evidenceIds: ['orders'] });
+    withShortTerms.skills.push({ name: 'R', category: 'Languages', evidenceIds: ['events'] });
+    expect(searchCareer('Go and Java', withShortTerms).skills.map((skill) => skill.name)).toEqual(['Java', 'Go']);
+    expect(searchCareer('R', withShortTerms).skills.map((skill) => skill.name)).toEqual(['R']);
+    expect(searchCareer('R and Java', withShortTerms).skills.map((skill) => skill.name)).toEqual(['Java']);
+  });
+
+  it('answers the skills listing only with cited public skills', () => {
+    const answer = answerQuestion('What skills do you have?', profile);
+    expect(answer.kind).toBe('answer');
+    expect(answer.text).toContain('Java');
+    expect(answer.evidence.map((source) => source.id)).toEqual(['orders', 'events', 'dashboard']);
+    expect(answerQuestion('Are you an expert in Kubernetes?', profile).kind).toBe('unknown');
+  });
+});
+
+describe('reverse interview', () => {
+  it('collects role, stack, scale and priorities in order and supports skipping', () => {
+    const initial = startInterview();
+    expect(initial.state.step).toBe('role');
+    expect(initial.followUp).toMatch(/role/i);
+    const role = advanceInterview(initial.state, 'Staff backend engineer');
+    expect(role.state).toMatchObject({ step: 'stack', answers: { role: 'Staff backend engineer' } });
+    expect(role.followUp).toMatch(/stack/i);
+    const stack = advanceInterview(role.state, 'Java and PostgreSQL');
+    expect(stack.state.step).toBe('scale');
+    expect(searchCareer(stack.state.answers.stack ?? '', profile).projects.map((p) => p.id)).toEqual(['orders', 'events']);
+    const scale = advanceInterview(stack.state, 'skip');
+    expect(scale.state).toMatchObject({ step: 'priorities', answers: { scale: '' } });
+    const done = advanceInterview(scale.state, 'reliability');
+    expect(done.state.step).toBe('complete');
+    expect(done.followUp).toBeUndefined();
+    expect(advanceInterview(done.state, 'anything').state).toEqual(done.state);
+  });
+
+  it('rejects empty and oversized replies without advancing or retaining them', () => {
+    const initial = startInterview();
+    for (const reply of ['   ', 'x'.repeat(501)]) {
+      const result = advanceInterview(initial.state, reply);
+      expect(result.state).toEqual(initial.state);
+      expect(result.followUp).toBe(initial.followUp);
+      expect(result.state.answers).toEqual({});
+    }
   });
 });

@@ -7,16 +7,20 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
+    "evaluate": "node --experimental-strip-types scripts/evaluate.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@huggingface/transformers": "4.3.2",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@testing-library/react": "16.3.3",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.4",
+    "jsdom": "29.1.1",
     "typescript": "5.9.3",
     "vite": "7.3.7",
     "vitest": "5.0.5"

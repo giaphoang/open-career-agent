@@ -16,7 +16,7 @@ You can edit JSON directly on GitHub with the pencil button; keep valid JSON syn
 
 ## Run locally
 
-Install Node.js 22 and npm, then run:
+Install Node.js 22.12 or newer and npm, then run:
 
 ```sh
 npm install
@@ -29,6 +29,7 @@ Open the local address printed by Vite. For a production build and checks:
 npm test
 npm run build
 npm run preview
+npm run evaluate
 ```
 
 The preview command serves the production build locally. These commands do not themselves publish a site.
@@ -46,9 +47,16 @@ Use the same `evidenceIds` in skills, projects, timeline entries and FAQ answers
 
 ## How answers work
 
-The browser checks configured FAQ questions first, then looks for relevant public profile information. It can decline questions when the data does not support an answer, including questions about private information. Follow-up questions help the recruiter clarify the role. This is a bounded, rules-based experience, not an autonomous recruiter or a verification service. Phrase important questions explicitly in the FAQ and test them; free-form retrieval may miss a relevant answer or return only related information.
+The browser checks configured FAQ questions first, then looks for relevant public profile information. It can decline questions when the data does not support an answer, including some questions about private information. Follow-up questions help the recruiter clarify the role. The role-discovery flow asks about role, stack, scale, and priorities, and can find related public evidence; it does not score suitability. Skill buttons find evidence for the selected skill. Answers and role context remain in the current page's memory until cleared or the page is closed.
 
-The default configuration does not require WebGPU, a model download, cloud inference, or a paid API. It does not save chat or add analytics by default. Hosting providers and browsers can still retain their own operational logs; review their policies for your use case. Optional browser LLM, voice, PDF import, and automated verification are not included in the default template.
+The default experience needs no model download, WebGPU, cloud inference, or paid API. Optional on-device search is experimental and off by default:
+
+- **Browser language model:** uses the experimental browser Prompt API when available. The browser may download its model after the visitor enables it. The model selects from authored FAQs; generated text is never displayed as a career fact.
+- **WASM semantic search:** loads an embedding model in a Web Worker after the visitor enables it. Model files are fetched from Hugging Face; the WASM runtime can be fetched from the site or jsDelivr. This is an embedding search, not a generative LLM. The app does not send questions to those services. Downloads disclose network metadata to their hosts. Model caching is disabled by the app; browser and network cache policies are outside its control.
+
+Either model can suggest unrelated material. Suggestions are labeled as related, not confirmation, and show the original sources. If a model is unavailable or fails, the instant rules-based answer remains. Supported devices and download size depend on the browser and model; validate the experience in your target environment. No analytics or chat persistence is added by default. Hosting providers and browsers can retain operational logs. Voice, automatic PDF import, and independent verification are not included.
+
+`npm run evaluate` exercises configured questions, a private-question control, and an unsupported-question control twice and reports deterministic answer hashes and local Node engine timings. It is not a browser benchmark, a proof of source truth, or a WCAG audit. See the CV guide before publishing content.
 
 ## Privacy and limitations
 
