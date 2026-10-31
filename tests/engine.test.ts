@@ -38,6 +38,11 @@ describe('career answers', () => {
 });
 
 describe('public profile validation', () => {
+  it('rejects FAQ questions that the privacy guard would always refuse', () => {
+    const profileWithBlockedQuestion = structuredClone(profileData);
+    profileWithBlockedQuestion.faq[0]!.questions = ['What is your salary?'];
+    expect(() => validateProfile(profileWithBlockedQuestion)).toThrow('FAQ questions cannot ask for private information');
+  });
   it('accepts the configured public profile', () => {
     expect(() => validateProfile(configuredProfile)).not.toThrow();
   });
@@ -125,6 +130,36 @@ describe('reverse interview', () => {
       expect(result.state).toEqual(initial.state);
       expect(result.followUp).toBe(initial.followUp);
       expect(result.state.answers).toEqual({});
+    }
+  });
+});
+
+describe('public data and candidate claim validation', () => {
+  it('requires evidence for the headline and summary and resolves both independently', () => {
+    const clean = structuredClone(profileData);
+    const candidate = { ...clean.candidate, headlineEvidenceIds: ['orders'], summaryEvidenceIds: ['events'] };
+    const validated = validateProfile({ ...clean, candidate });
+    expect(validated.candidate.headlineEvidenceIds).toEqual(['orders']);
+    expect(validated.candidate.summaryEvidenceIds).toEqual(['events']);
+    for (const field of ['headlineEvidenceIds', 'summaryEvidenceIds'] as const) {
+      expect(() => validateProfile({ ...clean, candidate: { ...candidate, [field]: [] } })).toThrow(field);
+      expect(() => validateProfile({ ...clean, candidate: { ...candidate, [field]: ['missing'] } })).toThrow('Unknown evidence id');
+      const withoutField: Record<string, unknown> = { ...candidate };
+      delete withoutField[field];
+      expect(() => validateProfile({ ...clean, candidate: withoutField })).toThrow(field);
+    }
+  });
+
+  it('rejects unknown keys at the root and every nested public data object', () => {
+    const candidate = { ...profileData.candidate, headlineEvidenceIds: ['orders'], summaryEvidenceIds: ['events'] };
+    const clean = { ...structuredClone(profileData), candidate };
+    expect(() => validateProfile(clean)).not.toThrow();
+    expect(() => validateProfile({ ...clean, privateResume: 'secret' })).toThrow('profile.privateResume');
+    expect(() => validateProfile({ ...clean, candidate: { ...candidate, privatePhone: 'secret' } })).toThrow('candidate.privatePhone');
+    for (const section of ['skills', 'projects', 'timeline', 'evidence', 'faq'] as const) {
+      const items = clean[section];
+      const withExtra = [{ ...items[0], secret: 'private' }, ...items.slice(1)];
+      expect(() => validateProfile({ ...clean, [section]: withExtra }), section).toThrow(`${section}[0].secret`);
     }
   });
 });

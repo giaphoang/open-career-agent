@@ -1,7 +1,7 @@
 /** The profile is entirely public. Do not put private CV information here. */
 export interface Evidence { id: string; label: string; url: string }
 export interface Profile {
-  candidate: { name: string; headline: string; location: string; summary: string; availability: string; contact: string };
+  candidate: { name: string; headline: string; headlineEvidenceIds: string[]; location: string; summary: string; summaryEvidenceIds: string[]; availability: string; contact: string };
   skills: { name: string; category: string; evidenceIds: string[] }[];
   projects: { id: string; name: string; role: string; summary: string; stack: string[]; evidenceIds: string[] }[];
   timeline: { period: string; title: string; organization: string; detail: string; evidenceIds: string[] }[];
@@ -15,9 +15,11 @@ export interface Answer {
   followUp?: string;
 }
 
-function object(value: unknown, path: string): Record<string, unknown> {
+function object(value: unknown, path: string, allowed: readonly string[]): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${path} must be an object`);
-  return value as Record<string, unknown>;
+  const result = value as Record<string, unknown>;
+  for (const key of Object.keys(result)) if (!allowed.includes(key)) throw new Error(`Unknown field: ${path}.${key}`);
+  return result;
 }
 function string(value: unknown, path: string): string {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`${path} must be a non-empty string`);
@@ -43,31 +45,31 @@ function httpsUrl(value: unknown, path: string): string {
 
 /** Parse and validate user-edited JSON before it reaches the UI or engine. */
 export function validateProfile(value: unknown): Profile {
-  const root = object(value, 'profile');
-  const c = object(root.candidate, 'candidate');
+  const root = object(value, 'profile', ['candidate', 'skills', 'projects', 'timeline', 'evidence', 'faq']);
+  const c = object(root.candidate, 'candidate', ['name', 'headline', 'headlineEvidenceIds', 'location', 'summary', 'summaryEvidenceIds', 'availability', 'contact']);
   const candidate = {
-    name: string(c.name, 'candidate.name'), headline: string(c.headline, 'candidate.headline'),
-    location: string(c.location, 'candidate.location'), summary: string(c.summary, 'candidate.summary'),
+    name: string(c.name, 'candidate.name'), headline: string(c.headline, 'candidate.headline'), headlineEvidenceIds: cited(c.headlineEvidenceIds, 'candidate.headlineEvidenceIds'),
+    location: string(c.location, 'candidate.location'), summary: string(c.summary, 'candidate.summary'), summaryEvidenceIds: cited(c.summaryEvidenceIds, 'candidate.summaryEvidenceIds'),
     availability: string(c.availability, 'candidate.availability'), contact: string(c.contact, 'candidate.contact'),
   };
   const evidence = array(root.evidence, 'evidence', (item, path) => {
-    const o = object(item, path);
+    const o = object(item, path, ['id', 'label', 'url']);
     return { id: string(o.id, `${path}.id`), label: string(o.label, `${path}.label`), url: httpsUrl(o.url, `${path}.url`) };
   });
   const skills = array(root.skills, 'skills', (item, path) => {
-    const o = object(item, path);
+    const o = object(item, path, ['name', 'category', 'evidenceIds']);
     return { name: string(o.name, `${path}.name`), category: string(o.category, `${path}.category`), evidenceIds: cited(o.evidenceIds, `${path}.evidenceIds`) };
   });
   const projects = array(root.projects, 'projects', (item, path) => {
-    const o = object(item, path);
+    const o = object(item, path, ['id', 'name', 'role', 'summary', 'stack', 'evidenceIds']);
     return { id: string(o.id, `${path}.id`), name: string(o.name, `${path}.name`), role: string(o.role, `${path}.role`), summary: string(o.summary, `${path}.summary`), stack: strings(o.stack, `${path}.stack`), evidenceIds: cited(o.evidenceIds, `${path}.evidenceIds`) };
   });
   const timeline = array(root.timeline, 'timeline', (item, path) => {
-    const o = object(item, path);
+    const o = object(item, path, ['period', 'title', 'organization', 'detail', 'evidenceIds']);
     return { period: string(o.period, `${path}.period`), title: string(o.title, `${path}.title`), organization: string(o.organization, `${path}.organization`), detail: string(o.detail, `${path}.detail`), evidenceIds: cited(o.evidenceIds, `${path}.evidenceIds`) };
   });
   const faq = array(root.faq, 'faq', (item, path) => {
-    const o = object(item, path);
+    const o = object(item, path, ['id', 'questions', 'answer', 'evidenceIds', 'followUp']);
     const questions = strings(o.questions, `${path}.questions`);
     if (!questions.length) throw new Error(`${path}.questions must have at least one question`);
     return { id: string(o.id, `${path}.id`), questions, answer: string(o.answer, `${path}.answer`), evidenceIds: cited(o.evidenceIds, `${path}.evidenceIds`), followUp: string(o.followUp, `${path}.followUp`) };
@@ -77,11 +79,13 @@ export function validateProfile(value: unknown): Profile {
     if (ids.has(source.id)) throw new Error(`Duplicate evidence id: ${source.id}`);
     ids.add(source.id);
   }
+  for (const id of [...candidate.headlineEvidenceIds, ...candidate.summaryEvidenceIds]) if (!ids.has(id)) throw new Error(`Unknown evidence id: ${id}`);
   for (const item of [...skills, ...projects, ...timeline, ...faq]) {
     for (const id of item.evidenceIds) if (!ids.has(id)) throw new Error(`Unknown evidence id: ${id}`);
   }
   const questionSet = new Set<string>();
   for (const item of faq) for (const question of item.questions) {
+    if (isPrivateQuestion(question)) throw new Error('FAQ questions cannot ask for private information');
     const normalized = normalize(question);
     if (!normalized || questionSet.has(normalized)) throw new Error(`Duplicate or empty FAQ question: ${question}`);
     questionSet.add(normalized);
@@ -98,6 +102,7 @@ function sources(ids: string[], profile: Profile): Evidence[] {
 }
 const PRIVATE_REQUEST = /\b(salary|compensation|pay|wage|home address|street address|phone number|passport|social security|ssn|date of birth|birth date|age|marital status|religion|medical|health|family|children|personal email)\b/i;
 const FOLLOW_UP = 'What role, technology stack, and scale are you hiring for?';
+export function isPrivateQuestion(question: string): boolean { return PRIVATE_REQUEST.test(normalize(question)); }
 
 export interface CareerSearchResult {
   skills: Profile['skills'];
@@ -155,7 +160,7 @@ export function advanceInterview(state: InterviewState, input: string): Intervie
 export function answerQuestion(question: string, profile: Profile): Answer {
   const query = normalize(question);
   if (!query) return { kind: 'unknown', text: 'Ask a question about the public profile or choose a suggested question.', evidence: [] };
-  if (PRIVATE_REQUEST.test(query)) return { kind: 'private', text: 'I can only discuss information the candidate chose to publish. Please contact them directly about private details.', evidence: [] };
+  if (isPrivateQuestion(question)) return { kind: 'private', text: 'I can only discuss information the candidate chose to publish. Please contact them directly about private details.', evidence: [] };
   const exact = profile.faq.find((entry) => entry.questions.some((item) => normalize(item) === query));
   if (exact) return { kind: 'answer', text: exact.answer, evidence: sources(exact.evidenceIds, profile), followUp: exact.followUp };
   const skillQuestions = ['what skills do you have', 'which skills do you have', 'what tools have you used', 'what is your technology stack'];

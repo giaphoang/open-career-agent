@@ -2,8 +2,10 @@
   "candidate": {
     "name": "Alex Morgan",
     "headline": "Senior Software Engineer · Distributed Systems",
+    "headlineEvidenceIds": ["orders", "events"],
     "location": "Remote · Example profile",
     "summary": "I build reliable services and enjoy making complex systems easier to operate. This is fictional sample content: replace it with your own verified public information.",
+    "summaryEvidenceIds": ["orders", "events"],
     "availability": "Open to relevant conversations",
     "contact": "hello@example.com"
   },

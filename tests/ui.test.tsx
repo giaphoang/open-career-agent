@@ -2,9 +2,10 @@
 import { act } from 'react';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
-import rawProfile from '../src/data/profile.json';
+import rawProfile from './fixtures/sample-profile.json';
 
 Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
+vi.mock('../src/data/profile.json', async () => ({ default: (await import('./fixtures/sample-profile.json')).default }));
 const wasm = vi.hoisted(() => ({ create: vi.fn(), select: vi.fn(), dispose: vi.fn() }));
 vi.mock('../src/wasm-search', () => ({ createWasmSearch: wasm.create }));
 const native = vi.hoisted(() => ({

@@ -14,6 +14,8 @@
 
 You can edit JSON directly on GitHub with the pencil button; keep valid JSON syntax and preview all changes before committing. To avoid a broken public site, use a branch and test it locally before merging where practical.
 
+The site's **Create a profile** button also offers a local, manual starter builder. It lets you review public details and a supporting source before downloading a `profile.json`; downloading does not update or deploy your repository. The starter has one project and one FAQ and needs more content for a complete portfolio. It does not parse or upload a PDF.
+
 ## Run locally
 
 Install Node.js 22.12 or newer and npm, then run:
@@ -38,16 +40,16 @@ The preview command serves the production build locally. These commands do not t
 
 [`src/data/profile.json`](src/data/profile.json) is the source of the displayed profile and answers:
 
-- `candidate`: public identity, headline, summary, location, availability, and contact.
+- `candidate`: public identity, headline, summary, location, availability, contact, and evidence IDs for the headline and summary.
 - `skills`, `projects`, and `timeline`: the experience you want to show.
 - `evidence`: public links with unique IDs and clear labels.
 - `faq`: recruiter questions, answers, evidence IDs, and follow-up questions.
 
-Use the same `evidenceIds` in skills, projects, timeline entries and FAQ answers to connect claims to evidence. A link supports a claim only when its contents actually substantiate that claim. Keep answers specific and supported; do not infer metrics, dates, responsibilities, or outcomes that your evidence does not establish. See [the CV guide](docs/add-your-cv.md) for a review checklist and examples.
+Use `candidate.headlineEvidenceIds`, `candidate.summaryEvidenceIds`, and `evidenceIds` in skills, projects, timeline entries and FAQ answers to connect claims to evidence. Each array must contain at least one existing evidence ID. A link supports a claim only when its contents actually substantiate that claim. Keep answers specific and supported; do not infer metrics, dates, responsibilities, or outcomes that your evidence does not establish. The build rejects unknown profile fields and missing references, but cannot detect private information placed in allowed fields or verify a source's contents. See [the CV guide](docs/add-your-cv.md) for a review checklist and migration instructions.
 
 ## How answers work
 
-The browser checks configured FAQ questions first, then looks for relevant public profile information. It can decline questions when the data does not support an answer, including some questions about private information. Follow-up questions help the recruiter clarify the role. The role-discovery flow asks about role, stack, scale, and priorities, and can find related public evidence; it does not score suitability. Skill buttons find evidence for the selected skill. Answers and role context remain in the current page's memory until cleared or the page is closed.
+The browser checks configured FAQ questions first, then looks for relevant public profile information. It can decline questions when the data does not support an answer, including some questions about private information. Follow-up questions help the recruiter clarify the role. The role-discovery flow asks about role, stack, scale, and priorities, and can find related public evidence; it does not score suitability. Skill buttons find evidence for the selected skill. The job-description explorer maps recognized public skill and stack keywords to evidence; it does not decide whether a requirement is met. Ambiguous items and unrecognized terms need manual review. Answers, role context, and job descriptions remain in the current page's memory until cleared or the page is closed.
 
 The default experience needs no model download, WebGPU, cloud inference, or paid API. Optional on-device search is experimental and off by default:
 
@@ -57,6 +59,8 @@ The default experience needs no model download, WebGPU, cloud inference, or paid
 Either model can suggest unrelated material. Suggestions are labeled as related, not confirmation, and show the original sources. If a model is unavailable or fails, the instant rules-based answer remains. Supported devices and download size depend on the browser and model; validate the experience in your target environment. No analytics or chat persistence is added by default. Hosting providers and browsers can retain operational logs. Voice, automatic PDF import, and independent verification are not included.
 
 `npm run evaluate` exercises configured questions, a private-question control, and an unsupported-question control twice and reports deterministic answer hashes and local Node engine timings. It is not a browser benchmark, a proof of source truth, or a WCAG audit. See the CV guide before publishing content.
+
+The **Performance in this session** panel shows the browser's latest observed LCP candidate and the p95 of up to 200 local rules-engine calls. It keeps measurements only in page memory; it is not a p75 across visitors, a full response-latency measurement, or an accessibility audit.
 
 ## Privacy and limitations
 

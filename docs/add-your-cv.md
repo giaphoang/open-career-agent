@@ -2,6 +2,17 @@
 
 The site does not automatically parse a PDF or import LinkedIn. You or a coding assistant can use your CV as a source and update `src/data/profile.json`. Review every change before committing: that JSON becomes public when you publish the site.
 
+For a manual starter, open the site and select **Create a profile**. Using your CV as a reference, enter only approved public details, add a public evidence link, and review each claim before downloading the JSON. The starter includes one project and one FAQ; extend it with your other verified work and questions. Closing the builder clears its draft. The builder does not read or upload the CV, and downloading a file does not update the website.
+
+To apply the starter without a local development setup:
+
+1. Create your own repository using the template's **Use this template** button and enable **GitHub Actions** as the Pages source in repository settings.
+2. Open the downloaded `profile.json` in a plain-text editor and copy all of its contents. Review them first: everything will become public.
+3. In your repository, open `src/data/profile.json`, select the pencil icon, replace the existing contents with the copied JSON, and commit to `main`.
+4. Check that the **Build and deploy** workflow succeeds under **Actions**, then open the Pages URL in repository settings. Check the text and each source before sharing the site.
+
+If you have a local checkout, replace `src/data/profile.json` with the reviewed file, run the checks, then deploy. Add more verified sources, projects, and FAQ questions as described below.
+
 ## 1. Prepare a public version of your CV
 
 Choose the facts you want recruiters to see: your preferred name and contact method, roles and dates, skills, project descriptions, your actual contributions, and links to public evidence. Remove private contact details, personal identifiers, confidential project or client information, secrets, and anything you do not have permission to publish. Never use an employer's private repository as public evidence.
@@ -15,10 +26,16 @@ Edit [`src/data/profile.json`](../src/data/profile.json), preserving its existin
 1. Update `candidate` with the public details you selected.
 2. Replace `skills`, `projects`, and `timeline` with your own verified experience.
 3. For each public source, add an item to `evidence` with a unique `id`, a readable `label`, and its `url`. Use public HTTPS links to a project, code, demo, or other source that supports the corresponding claim.
-4. Reference those IDs in the relevant `evidenceIds` arrays. Check that every ID resolves and that the link actually supports the text.
+4. Reference those IDs in `candidate.headlineEvidenceIds`, `candidate.summaryEvidenceIds` and the relevant `evidenceIds` arrays. Each must contain at least one existing ID. Check that every link actually supports the associated text.
 5. Replace `faq` with questions recruiters may ask. Put supported facts in `answer`, link the relevant evidence IDs, and add a `followUp` to clarify the recruiter's needs. Provide alternative phrasings in `questions`.
 
+The privacy guard blocks questions containing terms such as salary, age, health, or personal contact information, even if an FAQ is configured for them. The profile validator rejects these questions so they cannot silently become unreachable. The keyword guard is conservative and does not detect every sensitive question.
+
 For example, adapt the existing JSON entries rather than copying sample claims. If your evidence only shows that a project used Java, say that; do not infer its scale, your ownership, a percentage improvement, or a business outcome. If evidence is unavailable or private, leave the claim out or describe only what you can publicly support. Never invent a public citation.
+
+### Updating an existing fork
+
+If your profile was created before headline and summary citations were added, first add `headlineEvidenceIds` and `summaryEvidenceIds` to `candidate`, each containing IDs from your `evidence` list. The build rejects unknown fields and missing references; use the sample profile for allowed field names. This check cannot determine whether a source supports a claim or whether allowed text contains private data. GitHub repository content becomes public as soon as you push it, even if a later build fails.
 
 ## 3. Ask a coding assistant to help (optional)
 
