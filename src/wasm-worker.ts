@@ -45,7 +45,7 @@ scope.addEventListener('message', event => {
   if (value.type !== 'search' || !extractor || working || !('question' in value) || !('candidates' in value) || !('id' in value)) return;
   const { question, candidates, id } = value;
   if (typeof id !== 'number' || !Number.isSafeInteger(id) || typeof question !== 'string' || question.length > 2000 || !Array.isArray(candidates) || candidates.length === 0 || candidates.length > 40 || !candidates.every((candidate: unknown) => typeof candidate === 'string' && candidate.length <= 1200)) {
-    scope.postMessage({ type: 'result', id, index: null });
+    scope.postMessage({ type: 'result', id, index: null, ok: false });
     return;
   }
   working = true;
@@ -62,11 +62,11 @@ scope.addEventListener('message', event => {
       const faqEmbeddings = await currentExtractor(candidates, { pooling: 'mean', normalize: true });
       dimensions = faqEmbeddings.dims[1] ?? 0;
       if (faqEmbeddings.dims.length !== 2 || !dimensions || faqEmbeddings.dims[0] !== candidates.length ||
-        faqEmbeddings.data.length !== candidates.length * dimensions) return null;
+        faqEmbeddings.data.length !== candidates.length * dimensions) throw new Error('Invalid FAQ embeddings');
       const copy = new Float32Array(faqEmbeddings.data.length);
       for (let i = 0; i < copy.length; i++) {
         const number = Number(faqEmbeddings.data[i]);
-        if (!Number.isFinite(number)) return null;
+        if (!Number.isFinite(number)) throw new Error('Non-finite embedding');
         copy[i] = number;
       }
       vectors = copy;
@@ -75,18 +75,18 @@ scope.addEventListener('message', event => {
       cachedKey = key;
     }
     // The cache-miss branch must initialize vectors before cosine ranking.
-    if (!vectors) return null;
+    if (!vectors) throw new Error('Missing FAQ embeddings');
     // Only one short recruiter question requires inference on repeat turns.
     const questionEmbedding = await currentExtractor([question], { pooling: 'mean', normalize: true });
     if (questionEmbedding.dims.length !== 2 || questionEmbedding.dims[0] !== 1 ||
-      questionEmbedding.dims[1] !== dimensions || questionEmbedding.data.length !== dimensions) return null;
+      questionEmbedding.dims[1] !== dimensions || questionEmbedding.data.length !== dimensions) throw new Error('Invalid question embedding');
     const query = new Float32Array(dimensions);
     for (let i = 0; i < dimensions; i++) {
       const number = Number(questionEmbedding.data[i]);
-      if (!Number.isFinite(number)) return null;
+      if (!Number.isFinite(number)) throw new Error('Non-finite embedding');
       query[i] = number;
     }
     return rankRelatedEmbedding(query, vectors, dimensions);
-  })().then(index => scope.postMessage({ type: 'result', id, index, faqCacheHit }))
-    .catch(() => scope.postMessage({ type: 'result', id, index: null, faqCacheHit })).finally(() => { working = false; });
+  })().then(index => scope.postMessage({ type: 'result', id, index, faqCacheHit, ok: true }))
+    .catch(() => scope.postMessage({ type: 'result', id, index: null, faqCacheHit, ok: false })).finally(() => { working = false; });
 });

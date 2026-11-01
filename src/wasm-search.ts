@@ -87,9 +87,13 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
       if (value.type === 'result' && pending && 'id' in value && value.id === pending.id && 'index' in value) {
         const request = pending; pending = undefined; request.cleanup();
         if (!request.cancelled) {
+          // An abstention is a completed inference, but an internal model failure
+          // is neither a valid selection nor a latency sample. Fail closed if a
+          // worker sends a result without the explicit success marker.
+          const completed = 'ok' in value && value.ok === true;
           const index = value.index;
-          reportTiming('query', request.startedAt, 'faqCacheHit' in value && typeof value.faqCacheHit === 'boolean' ? value.faqCacheHit : undefined);
-          request.resolve(typeof index === 'number' && Number.isSafeInteger(index) && index >= 0 && index < request.count ? index : null);
+          if (completed) reportTiming('query', request.startedAt, 'faqCacheHit' in value && typeof value.faqCacheHit === 'boolean' ? value.faqCacheHit : undefined);
+          request.resolve(completed && typeof index === 'number' && Number.isSafeInteger(index) && index >= 0 && index < request.count ? index : null);
         }
       }
     };
