@@ -43,6 +43,8 @@ CI runs `node scripts/browser-smoke.mjs` after the production build using instal
 This is **not** a full WCAG audit, cold-offline validation, WebGPU benchmark, WASM inference test, or proof that evidence links independently substantiate every claim. Run a manual accessibility review and real-device WASM measurements before declaring production readiness.
 
 
+The CI install uses `npm ci --ignore-scripts` because this browser-only site does not use the native `onnxruntime-node` binding: its transitive postinstall binary download can fail independently of the web build. CI still runs all tests, the deterministic evaluation, the production build and Chromium smoke. If you add a dependency that requires install scripts, review this policy before changing it.
+
 GitHub Actions tests pull requests and manually dispatched runs on feature branches without publishing them. Only a run targeting `main` may upload or deploy the public GitHub Pages site, and only the deploy job receives Pages/OIDC write permissions.
 
 ## Your data
