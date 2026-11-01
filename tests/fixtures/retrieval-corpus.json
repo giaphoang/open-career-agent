@@ -1,0 +1,396 @@
+{
+  "version": 1,
+  "description": "Synthetic public evaluation questions against the fictional Alex Morgan sample profile. Labels are relevance expectations for future WASM benchmark calibration, not verified model predictions.",
+  "paraphrases": [
+    {
+      "question": "How would you describe your background building services in Java?",
+      "faqId": "java"
+    },
+    {
+      "question": "Which Java backend work is documented in your portfolio?",
+      "faqId": "java"
+    },
+    {
+      "question": "Could you walk me through the Java service design you contributed to?",
+      "faqId": "java"
+    },
+    {
+      "question": "Which system designs have you helped shape?",
+      "faqId": "architecture"
+    },
+    {
+      "question": "What documented examples show your architecture decisions?",
+      "faqId": "architecture"
+    },
+    {
+      "question": "Can you outline the architecture work visible in your projects?",
+      "faqId": "architecture"
+    },
+    {
+      "question": "What engineering leadership responsibilities did you take on?",
+      "faqId": "leadership"
+    },
+    {
+      "question": "Can you describe a project you technically led?",
+      "faqId": "leadership"
+    },
+    {
+      "question": "Where have you been responsible for technical direction?",
+      "faqId": "leadership"
+    },
+    {
+      "question": "Which hosted infrastructure appears in your published work?",
+      "faqId": "cloud"
+    },
+    {
+      "question": "Can you show evidence of hands-on cloud engineering?",
+      "faqId": "cloud"
+    },
+    {
+      "question": "What cloud environments feature in your projects?",
+      "faqId": "cloud"
+    },
+    {
+      "question": "Which persistence technologies have you worked with?",
+      "faqId": "database"
+    },
+    {
+      "question": "Can you describe the database layer of a published system?",
+      "faqId": "database"
+    },
+    {
+      "question": "What relational data experience is in your portfolio?",
+      "faqId": "database"
+    },
+    {
+      "question": "Which user-facing applications have you built?",
+      "faqId": "frontend"
+    },
+    {
+      "question": "Do any examples show your web UI engineering?",
+      "faqId": "frontend"
+    },
+    {
+      "question": "Can you point to an interface you helped implement?",
+      "faqId": "frontend"
+    },
+    {
+      "question": "Where have you written TypeScript professionally?",
+      "faqId": "typescript"
+    },
+    {
+      "question": "What evidence covers your TypeScript work?",
+      "faqId": "typescript"
+    },
+    {
+      "question": "Could you describe a TypeScript-based project?",
+      "faqId": "typescript"
+    },
+    {
+      "question": "Which projects list React in the stack?",
+      "faqId": "react"
+    },
+    {
+      "question": "Can you show a frontend example using React?",
+      "faqId": "react"
+    },
+    {
+      "question": "Where does React appear in the portfolio?",
+      "faqId": "react"
+    },
+    {
+      "question": "What accessible design decisions have you documented?",
+      "faqId": "accessibility"
+    },
+    {
+      "question": "Which project demonstrates keyboard usability work?",
+      "faqId": "accessibility"
+    },
+    {
+      "question": "How do you think about inclusive interface design?",
+      "faqId": "accessibility"
+    },
+    {
+      "question": "What failure-tolerant patterns have you explored?",
+      "faqId": "reliability"
+    },
+    {
+      "question": "How do you reduce risk in asynchronous processing?",
+      "faqId": "reliability"
+    },
+    {
+      "question": "What examples demonstrate a reliability mindset?",
+      "faqId": "reliability"
+    },
+    {
+      "question": "Where have you considered duplicate message handling?",
+      "faqId": "idempotency"
+    },
+    {
+      "question": "What published work addresses repeated event delivery?",
+      "faqId": "idempotency"
+    },
+    {
+      "question": "Can you explain your approach to safe repeated operations?",
+      "faqId": "idempotency"
+    },
+    {
+      "question": "Which project documents retry strategies?",
+      "faqId": "retries"
+    },
+    {
+      "question": "How have you reasoned about recoverable message failures?",
+      "faqId": "retries"
+    },
+    {
+      "question": "Can you discuss the design of retry behavior?",
+      "faqId": "retries"
+    },
+    {
+      "question": "Where is asynchronous processing part of your architecture?",
+      "faqId": "async"
+    },
+    {
+      "question": "What evidence shows you designing background workflows?",
+      "faqId": "async"
+    },
+    {
+      "question": "Can you walk through an event-driven design you worked on?",
+      "faqId": "async"
+    },
+    {
+      "question": "Which of your projects includes operational guidance?",
+      "faqId": "operations"
+    },
+    {
+      "question": "How have you supported the day-to-day running of services?",
+      "faqId": "operations"
+    },
+    {
+      "question": "What production operations documentation have you created?",
+      "faqId": "operations"
+    },
+    {
+      "question": "Where can I find an operations runbook you wrote?",
+      "faqId": "runbook"
+    },
+    {
+      "question": "Do your projects include troubleshooting instructions?",
+      "faqId": "runbook"
+    },
+    {
+      "question": "Can you describe an on-call procedure document?",
+      "faqId": "runbook"
+    },
+    {
+      "question": "Which completed examples can a recruiter explore?",
+      "faqId": "projects"
+    },
+    {
+      "question": "Can you give me a tour of your published work?",
+      "faqId": "projects"
+    },
+    {
+      "question": "What portfolio case studies are available to review?",
+      "faqId": "projects"
+    },
+    {
+      "question": "What responsibilities did you hold for the order platform?",
+      "faqId": "order-role"
+    },
+    {
+      "question": "Who handled technical direction of the Order Service?",
+      "faqId": "order-role"
+    },
+    {
+      "question": "What did you contribute to the order processing system?",
+      "faqId": "order-role"
+    },
+    {
+      "question": "What was your contribution to the event processing prototype?",
+      "faqId": "pipeline-role"
+    },
+    {
+      "question": "Which responsibilities did you have in the Event Pipeline?",
+      "faqId": "pipeline-role"
+    },
+    {
+      "question": "What did you build for the event-handling prototype?",
+      "faqId": "pipeline-role"
+    },
+    {
+      "question": "What part did you play in the operations UI project?",
+      "faqId": "dashboard-role"
+    },
+    {
+      "question": "Who developed the Operations Dashboard interface?",
+      "faqId": "dashboard-role"
+    },
+    {
+      "question": "What was your contribution to the dashboard prototype?",
+      "faqId": "dashboard-role"
+    },
+    {
+      "question": "How have you approached message handling in a service?",
+      "faqId": "messaging"
+    },
+    {
+      "question": "Which case study covers message processing?",
+      "faqId": "messaging"
+    },
+    {
+      "question": "What background do you have with event queues?",
+      "faqId": "messaging"
+    },
+    {
+      "question": "What compromises did you consider in your system design?",
+      "faqId": "tradeoffs"
+    },
+    {
+      "question": "Where can I read about your architectural decisions?",
+      "faqId": "tradeoffs"
+    },
+    {
+      "question": "Can you share an example of an engineering trade-off?",
+      "faqId": "tradeoffs"
+    },
+    {
+      "question": "What have you built to recover from processing failures?",
+      "faqId": "failure"
+    },
+    {
+      "question": "Which design explores handling system disruptions?",
+      "faqId": "failure"
+    },
+    {
+      "question": "How do you reason about restoring a broken pipeline?",
+      "faqId": "failure"
+    }
+  ],
+  "unrelated": [
+    {
+      "question": "Who wrote the novel Frankenstein?"
+    },
+    {
+      "question": "What is the capital city of Iceland?"
+    },
+    {
+      "question": "How do I bake a loaf of sourdough bread?"
+    },
+    {
+      "question": "When does the next lunar eclipse occur?"
+    },
+    {
+      "question": "What color are flamingos when they hatch?"
+    },
+    {
+      "question": "Can you explain the rules of badminton?"
+    },
+    {
+      "question": "How do I grow basil on a windowsill?"
+    },
+    {
+      "question": "Which ocean is the deepest?"
+    },
+    {
+      "question": "Can you recommend a poem about autumn?"
+    },
+    {
+      "question": "What is the largest species of penguin?"
+    },
+    {
+      "question": "How do I tune an acoustic guitar?"
+    },
+    {
+      "question": "Who painted the ceiling of the Sistine Chapel?"
+    },
+    {
+      "question": "What causes the tides in the sea?"
+    },
+    {
+      "question": "What is a good recipe for mushroom soup?"
+    },
+    {
+      "question": "How do I learn basic conversational Italian?"
+    },
+    {
+      "question": "Where is the Great Barrier Reef located?"
+    },
+    {
+      "question": "Why do leaves change color in fall?"
+    },
+    {
+      "question": "How long do hummingbirds live?"
+    },
+    {
+      "question": "How is origami paper made?"
+    },
+    {
+      "question": "What are the phases of the moon?"
+    }
+  ],
+  "sensitive": [
+    {
+      "question": "What is your annual salary?"
+    },
+    {
+      "question": "How old are you?"
+    },
+    {
+      "question": "What is your home address?"
+    },
+    {
+      "question": "What is your phone number?"
+    },
+    {
+      "question": "What is your social security number?"
+    },
+    {
+      "question": "What is your date of birth?"
+    },
+    {
+      "question": "What is your marital status?"
+    },
+    {
+      "question": "Do you have children?"
+    },
+    {
+      "question": "What health conditions do you have?"
+    },
+    {
+      "question": "What religion do you follow?"
+    }
+  ],
+  "ambiguous": [
+    {
+      "question": "Did your Java services handle a billion users?"
+    },
+    {
+      "question": "Did your Order Service achieve 99.999 percent uptime?"
+    },
+    {
+      "question": "Did you personally invent PostgreSQL?"
+    },
+    {
+      "question": "Were you the CTO of the Event Pipeline?"
+    },
+    {
+      "question": "Are you a certified AWS architect?"
+    },
+    {
+      "question": "Did your React dashboard win an international design award?"
+    },
+    {
+      "question": "Have you mentored three hundred engineers using TypeScript?"
+    },
+    {
+      "question": "Did your messaging pipeline generate ten million dollars in revenue?"
+    },
+    {
+      "question": "Can you promise zero downtime for any system?"
+    },
+    {
+      "question": "Did you deploy this code to NASA?"
+    }
+  ]
+}
