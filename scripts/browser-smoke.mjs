@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, mkdir, writeFile, rm } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
+import { tmpdir, cpus, totalmem } from 'node:os';
 import { resolve, join, sep, extname } from 'node:path';
 import assert from 'node:assert/strict';
 
@@ -225,6 +225,8 @@ try {
   let wasmEvaluation = null;
   if (process.env.RUN_WASM_EVAL === '1') {
     const sample = JSON.parse(await readFile('tests/fixtures/sample-profile.json', 'utf8'));
+    assert.deepEqual(JSON.parse(await readFile('src/data/profile.json', 'utf8')), sample,
+      'The real-model evaluation requires the fictional sample profile to match the labeled corpus.');
     const corpus = JSON.parse(await readFile('tests/fixtures/retrieval-corpus.json', 'utf8'));
     const perCategory = Number(process.env.WASM_EVAL_PER_CATEGORY ?? 8);
     assert(Number.isSafeInteger(perCategory) && perCategory >= 1 && perCategory <= 100, 'WASM_EVAL_PER_CATEGORY must be 1-100.');
@@ -242,6 +244,7 @@ try {
     };
     const benchmarkReport = { method: 'Real quantized MiniLM WASM in Chromium; explicit opt-in; browser UI end-to-end; synthetic fictional data', 
       corpusVersion: corpus.version, browser, node: process.version, platform: process.platform, architecture: process.arch,
+      runnerHardware: { cpuModel: cpus()[0]?.model ?? 'unknown', logicalCores: cpus().length, visibleRamGiB: Number((totalmem() / 1024 ** 3).toFixed(1)) },
       model: 'Xenova/all-MiniLM-L6-v2', modelRevision: '751bff37182d3f1213fa05d7196b954e230abad9',
       perCategory, totalCorpusCases: Object.values(corpus).filter(Array.isArray).reduce((count, arr) => count + arr.length, 0),
       sampledCases: rows.length, results: [], limitations: 'Chromium desktop CI runner only; not a mobile device or WebGPU test. No remote-model download byte measurement. UI wall time includes rendering; worker timings are separately displayed. No validation that linked evidence substantiates claims.' };
