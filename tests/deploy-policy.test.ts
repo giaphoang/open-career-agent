@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 const workflow = readFileSync(new URL('../.github/workflows/deploy.yml', import.meta.url), 'utf8');
 const [configuration, jobs = ''] = workflow.split('\njobs:\n');
-const [, build = '', deploy = ''] = jobs.split(/\n  (?:build|deploy):\n/);
+const [, build = '', deploy = ''] = jobs.split(/(?:^|\n)  (?:build|deploy):\n/);
 const mainOnly = "github.ref == 'refs/heads/main' && github.event_name != 'pull_request'";
 
 describe('public GitHub Pages deployment policy', () => {
