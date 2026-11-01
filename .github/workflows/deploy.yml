@@ -23,6 +23,15 @@ jobs:
       - run: npm test
       - run: npm run evaluate
       - run: npm run build
+      - name: Browser smoke · desktop/mobile and offline fallback
+        run: node scripts/browser-smoke.mjs
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-smoke-${{ github.run_id }}
+          path: artifacts/browser-smoke/
+          if-no-files-found: ignore
       # Preview/PR builds are tested but never published to the public portfolio.
       - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
