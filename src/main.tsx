@@ -154,6 +154,7 @@ function App() {
   const modelCanEnable = modelState === 'available' || modelState === 'downloadable' || modelState === 'downloading' || modelState === 'error';
   const modelLabel: Record<ModelState, string> = { checking: 'Checking browser support…', unsupported: 'Not supported in this browser', unavailable: 'Unavailable on this device', available: 'Available on this device', downloadable: 'Model download may be required', downloading: 'Browser is downloading the model', loading: progress === null ? 'Starting the model…' : `Downloading model · ${Math.round(progress * 100)}%`, ready: 'Enabled for related FAQ suggestions', error: 'Could not start; instant chat still works' };
   return <>
+    <a className="skip-link" href="#conversation" onClick={event => { event.preventDefault(); focusChat(); }}>Skip to interview chat</a>
     <header className="topbar"><a className="brand" href="#top"><span className="brand-mark">✳</span>{profile.candidate.name}</a><nav aria-label="Main navigation"><a href="#conversation">Interview</a><a href="#work">Projects</a><a href="#experience">Experience</a></nav><a className="top-contact" href={`mailto:${profile.candidate.contact}`}>Contact candidate <span aria-hidden="true">↗</span></a></header>
     <main id="top">
       <section className="hero shell" id="about">

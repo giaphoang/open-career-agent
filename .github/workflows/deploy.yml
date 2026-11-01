@@ -19,7 +19,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # Browser-only build: onnxruntime-node is transitive and its native binary
+      # postinstall can time out; the app uses onnxruntime-web in the browser.
+      - run: npm ci --ignore-scripts
       - run: npm test
       - run: npm run evaluate
       - run: npm run build

@@ -120,6 +120,35 @@ try {
     assert(layout.developerHeight > 0 && layout.developerTop < layout.scrollHeight, 'Developer footer must actually be visible in page layout.');
     assert(layout.width <= v.width + 2 && layout.scrollWidth <= layout.width + 2, v.name + ' has horizontal overflow or incorrect viewport scale.');
     if (v.mobile) assert(layout.chatFirst, 'Mobile should show recruiter chat before sidebar.');
+    // A keyboard-only recruiter can bypass navigation and the long hero to reach chat.
+    // Trigger the real Enter key on the focused skip link; .click() alone would
+    // miss browser focus and default-action regressions.
+    await call('Page.bringToFront');
+    const tab = { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 };
+    await call('Input.dispatchKeyEvent', { ...tab, type: 'keyDown' });
+    await call('Input.dispatchKeyEvent', { ...tab, type: 'keyUp' });
+    const skipLink = await evaluate(`(() => {
+      const skip = document.querySelector('.skip-link');
+      if (!skip) return null;
+      const box = skip.getBoundingClientRect();
+      return {
+        first: document.querySelector('#root')?.firstElementChild === skip,
+        focused: document.activeElement === skip,
+        focusRule: skip.matches(':focus'),
+        label: skip.textContent?.trim(),
+        target: skip.getAttribute('href'),
+        top: box.top,
+        width: box.width,
+        height: box.height
+      };
+    })()`);
+    assert(skipLink?.first && skipLink.focused && skipLink.label === 'Skip to interview chat' && skipLink.target === '#conversation',
+      'Keyboard skip link must be the first element and point to recruiter chat.');
+    assert(skipLink.top >= 0 && skipLink.width >= 44 && skipLink.height >= 44,
+      'Focused skip link must be visible and usable in ' + v.name + ': ' + JSON.stringify(skipLink));
+    await pressEnter();
+    await until(() => evaluate('document.activeElement?.id === "question"'),
+      'Enter on skip link did not focus the recruiter question field on ' + v.name);
     // Measure real Chromium computed styles and visible control geometry.
     // These checks prevent regressions to iOS-triggering 12px input text and
     // undersized tap targets without claiming an actual iOS device audit.
@@ -187,7 +216,7 @@ try {
     const screenshotHeight = await evaluate('document.documentElement.scrollHeight');
     const screenshot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width: v.width, height: screenshotHeight, scale: 1 } });
     await writeFile(join(output, v.name + '.png'), Buffer.from(screenshot.data, 'base64'));
-    results.push({ viewport: v.name, ...layout, ...(mobileUsability ? { mobileUsability } : {}), ...keyboard, keyboardSubmitted: true, keyboardDeveloperDisclosure: true, screenshotHeight, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
+    results.push({ viewport: v.name, keyboardSkipLink: skipLink, ...layout, ...(mobileUsability ? { mobileUsability } : {}), ...keyboard, keyboardSubmitted: true, keyboardDeveloperDisclosure: true, screenshotHeight, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
   }
   const report = { browser, method: 'headless Chromium; WebGPU disabled; no local model enabled; network offline after initial load', results };
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2));
