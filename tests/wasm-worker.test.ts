@@ -31,19 +31,23 @@ describe('WASM worker inference reuse', () => {
     emit({ type: 'init' });
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'ready' }));
 
-    const candidates = ['Java backend skills', 'React frontend skills'];
+    const candidates = [['Java backend skills', 'Java design experience'], ['React frontend skills']];
     emit({ type: 'search', id: 1, question: 'Java expertise?', candidates });
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 1, index: 0, faqCacheHit: false, ok: true }));
-    expect(mock.calls).toEqual([candidates, ['Java expertise?']]);
+    expect(mock.calls).toEqual([candidates.flat(), ['Java expertise?']]);
 
     emit({ type: 'search', id: 2, question: 'React expertise?', candidates });
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 2, index: 1, faqCacheHit: true, ok: true }));
-    expect(mock.calls).toEqual([candidates, ['Java expertise?'], ['React expertise?']]);
+    expect(mock.calls).toEqual([candidates.flat(), ['Java expertise?'], ['React expertise?']]);
 
-    const updated = ['Java API experience', 'React frontend skills'];
+    const updated = [['Java API experience'], ['React frontend skills']];
     emit({ type: 'search', id: 3, question: 'Java API?', candidates: updated });
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 3, index: 0, faqCacheHit: false, ok: true }));
-    expect(mock.calls).toEqual([candidates, ['Java expertise?'], ['React expertise?'], updated, ['Java API?']]);
+    expect(mock.calls).toEqual([candidates.flat(), ['Java expertise?'], ['React expertise?'], updated.flat(), ['Java API?']]);
+
+    emit({ type: 'search', id: 31, question: 'React?', candidates: ['Not grouped'] });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 31, index: null, ok: false }));
+    expect(mock.calls).toHaveLength(5); // rejected before embedding
 
     // Model exceptions must be distinguishable from a legitimate low-similarity
     // abstention, while preserving the existing cached FAQ vectors.

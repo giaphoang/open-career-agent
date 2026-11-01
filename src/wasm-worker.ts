@@ -17,9 +17,10 @@ if (env.backends.onnx.wasm) env.backends.onnx.wasm.numThreads = 1;
 let extractor: Awaited<ReturnType<typeof makeExtractor>> | undefined;
 let working = false;
 // Only the latest FAQ set is cached; replacing the profile replaces this cache.
-// One set of up to 40 normalized embeddings is small (about 60 KiB at 384 dims).
+// Up to 40 FAQ groups x five question aliases x 384 dims (about 300 KiB).
 let cachedKey: string | null = null;
 let cachedVectors: Float32Array | null = null;
+let cachedGroupIds: number[] | null = null;
 let cachedDimensions = 0;
 
 const makeExtractor = () => pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
@@ -44,7 +45,7 @@ scope.addEventListener('message', event => {
   }
   if (value.type !== 'search' || !extractor || working || !('question' in value) || !('candidates' in value) || !('id' in value)) return;
   const { question, candidates, id } = value;
-  if (typeof id !== 'number' || !Number.isSafeInteger(id) || typeof question !== 'string' || question.length > 2000 || !Array.isArray(candidates) || candidates.length === 0 || candidates.length > 40 || !candidates.every((candidate: unknown) => typeof candidate === 'string' && candidate.length <= 1200)) {
+  if (typeof id !== 'number' || !Number.isSafeInteger(id) || typeof question !== 'string' || question.length > 2000 || !Array.isArray(candidates) || candidates.length === 0 || candidates.length > 40 || !candidates.every((group: unknown) => Array.isArray(group) && group.length >= 1 && group.length <= 5 && group.every((alias: unknown) => typeof alias === 'string' && alias.trim().length > 0 && alias.length <= 240))) {
     scope.postMessage({ type: 'result', id, index: null, ok: false });
     return;
   }
@@ -54,15 +55,21 @@ scope.addEventListener('message', event => {
   void (async () => {
     const key = JSON.stringify(candidates);
     let vectors = cachedVectors;
+    let groupIds = cachedGroupIds;
     let dimensions = cachedDimensions;
     faqCacheHit = !!vectors && key === cachedKey;
     if (!faqCacheHit) {
       // Previous version embedded every FAQ on every question. This work is
       // invariant for a static CV, so compute it only once per candidate set.
-      const faqEmbeddings = await currentExtractor(candidates, { pooling: 'mean', normalize: true });
+      // Embed each authored alternative separately, then compare the maximum
+      // alias cosine for each FAQ. Synonyms within one FAQ must not compete
+      // with each other in the winning-margin ambiguity guard.
+      const aliases: string[] = candidates.flat();
+      groupIds = candidates.flatMap((group: string[], index: number) => group.map(() => index));
+      const faqEmbeddings = await currentExtractor(aliases, { pooling: 'mean', normalize: true });
       dimensions = faqEmbeddings.dims[1] ?? 0;
-      if (faqEmbeddings.dims.length !== 2 || !dimensions || faqEmbeddings.dims[0] !== candidates.length ||
-        faqEmbeddings.data.length !== candidates.length * dimensions) throw new Error('Invalid FAQ embeddings');
+      if (faqEmbeddings.dims.length !== 2 || !dimensions || faqEmbeddings.dims[0] !== aliases.length ||
+        faqEmbeddings.data.length !== aliases.length * dimensions) throw new Error('Invalid FAQ embeddings');
       const copy = new Float32Array(faqEmbeddings.data.length);
       for (let i = 0; i < copy.length; i++) {
         const number = Number(faqEmbeddings.data[i]);
@@ -71,11 +78,12 @@ scope.addEventListener('message', event => {
       }
       vectors = copy;
       cachedVectors = copy;
+      cachedGroupIds = groupIds;
       cachedDimensions = dimensions;
       cachedKey = key;
     }
     // The cache-miss branch must initialize vectors before cosine ranking.
-    if (!vectors) throw new Error('Missing FAQ embeddings');
+    if (!vectors || !groupIds) throw new Error('Missing FAQ embeddings');
     // Only one short recruiter question requires inference on repeat turns.
     const questionEmbedding = await currentExtractor([question], { pooling: 'mean', normalize: true });
     if (questionEmbedding.dims.length !== 2 || questionEmbedding.dims[0] !== 1 ||
@@ -86,7 +94,7 @@ scope.addEventListener('message', event => {
       if (!Number.isFinite(number)) throw new Error('Non-finite embedding');
       query[i] = number;
     }
-    return rankRelatedEmbedding(query, vectors, dimensions);
+    return rankRelatedEmbedding(query, vectors, dimensions, groupIds);
   })().then(index => scope.postMessage({ type: 'result', id, index, faqCacheHit, ok: true }))
     .catch(() => scope.postMessage({ type: 'result', id, index: null, faqCacheHit, ok: false })).finally(() => { working = false; });
 });

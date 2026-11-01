@@ -57,8 +57,10 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
         resolve({
           select(question, candidates, signal) {
             if (closed || pending || signal.aborted || !question.trim() || question.length > 2000 || candidates.length === 0 || candidates.length > 40) return Promise.resolve(null);
-            const texts = candidates.map(candidate => candidate.questions.slice(0, 5).map(item => item.slice(0, 240)).join(' '));
-            if (texts.some(text => !text.trim())) return Promise.resolve(null);
+            // Send separate aliases: embedding one concatenated FAQ string dilutes
+            // alternate phrasings. The worker compares the best alias per FAQ.
+            const texts = candidates.map(candidate => candidate.questions.slice(0, 5).map(item => item.slice(0, 240)));
+            if (texts.some(group => group.length === 0 || group.some(text => !text.trim()))) return Promise.resolve(null);
             const id = ++sequence;
             return new Promise<number | null>(done => {
               // Cancellation should not unload a large model on every fast follow-up.
