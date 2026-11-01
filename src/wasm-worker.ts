@@ -50,11 +50,13 @@ scope.addEventListener('message', event => {
   }
   working = true;
   const currentExtractor = extractor;
+  let faqCacheHit = false;
   void (async () => {
     const key = JSON.stringify(candidates);
     let vectors = cachedVectors;
     let dimensions = cachedDimensions;
-    if (!vectors || key !== cachedKey) {
+    faqCacheHit = !!vectors && key === cachedKey;
+    if (!faqCacheHit) {
       // Previous version embedded every FAQ on every question. This work is
       // invariant for a static CV, so compute it only once per candidate set.
       const faqEmbeddings = await currentExtractor(candidates, { pooling: 'mean', normalize: true });
@@ -72,6 +74,8 @@ scope.addEventListener('message', event => {
       cachedDimensions = dimensions;
       cachedKey = key;
     }
+    // The cache-miss branch must initialize vectors before cosine ranking.
+    if (!vectors) return null;
     // Only one short recruiter question requires inference on repeat turns.
     const questionEmbedding = await currentExtractor([question], { pooling: 'mean', normalize: true });
     if (questionEmbedding.dims.length !== 2 || questionEmbedding.dims[0] !== 1 ||
@@ -83,6 +87,6 @@ scope.addEventListener('message', event => {
       query[i] = number;
     }
     return rankRelatedEmbedding(query, vectors, dimensions);
-  })().then(index => scope.postMessage({ type: 'result', id, index }))
-    .catch(() => scope.postMessage({ type: 'result', id, index: null })).finally(() => { working = false; });
+  })().then(index => scope.postMessage({ type: 'result', id, index, faqCacheHit }))
+    .catch(() => scope.postMessage({ type: 'result', id, index: null, faqCacheHit })).finally(() => { working = false; });
 });

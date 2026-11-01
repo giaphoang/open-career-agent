@@ -34,9 +34,10 @@ describe('WASM worker boundary', () => {
     expect(onTiming).toHaveBeenCalledTimes(1);
     expect(onTiming).toHaveBeenCalledWith({ phase: 'startup', elapsedMs: expect.any(Number) });
     const pending = search.select('Java work?', faqs, new AbortController().signal);
-    worker.emit({ type: 'result', id: 1, index: 0 });
+    worker.emit({ type: 'result', id: 1, index: 0, faqCacheHit: false });
     expect(await pending).toBe(0);
     expect(onTiming).toHaveBeenCalledTimes(2);
+    expect(onTiming).toHaveBeenLastCalledWith({ phase: 'query', elapsedMs: expect.any(Number), faqCacheHit: false });
     const duration = onTiming.mock.calls[1]![0] as { phase: string; elapsedMs: number };
     expect(duration.phase).toBe('query');
     expect(duration.elapsedMs).toBeGreaterThanOrEqual(0);
@@ -46,6 +47,20 @@ describe('WASM worker boundary', () => {
     expect(await aborted).toBeNull();
     expect(onTiming).toHaveBeenCalledTimes(2);
   });
+  it('separates cached-FAQ query time from startup without assuming the selection is true', async () => {
+    vi.stubGlobal('Worker', FakeWorker);
+    const onTiming = vi.fn();
+    const created = createWasmSearch({ signal: new AbortController().signal, onTiming });
+    const worker = FakeWorker.last;
+    worker.emit({ type: 'ready' });
+    const search = await created;
+    const pending = search.select('Unverified question', faqs, new AbortController().signal);
+    worker.emit({ type: 'result', id: 1, index: null, faqCacheHit: true });
+    expect(await pending).toBeNull();
+    expect(onTiming).toHaveBeenLastCalledWith({ phase: 'query', elapsedMs: expect.any(Number), faqCacheHit: true });
+    search.dispose();
+  });
+
   it('does not break search if a timing observer throws', async () => {
     vi.stubGlobal('Worker', FakeWorker);
     const created = createWasmSearch({

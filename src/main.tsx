@@ -30,6 +30,8 @@ function App() {
   const [decisionTimes, setDecisionTimes] = useState<number[]>([]);
   const [wasmStartupMs, setWasmStartupMs] = useState<number | null>(null);
   const [wasmSearchTimes, setWasmSearchTimes] = useState<number[]>([]);
+  const [wasmFaqCacheMissMs, setWasmFaqCacheMissMs] = useState<number | null>(null);
+  const [wasmFaqCacheHitTimes, setWasmFaqCacheHitTimes] = useState<number[]>([]);
   const [interview, setInterview] = useState<InterviewState | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
@@ -123,14 +125,19 @@ function App() {
       const active = model.current; provider.current = null; pending.current?.abort(); setModelSearching(false); active.dispose(); model.current = null; setWasmState('off'); return;
     }
     setWasmState('loading'); setProgress(null); setWasmStartupMs(null); setWasmSearchTimes([]);
+    setWasmFaqCacheMissMs(null); setWasmFaqCacheHitTimes([]);
     const controller = new AbortController(); startup.current = controller;
     try {
       const { createWasmSearch } = await import('./wasm-search');
       if (controller.signal.aborted) return;
-      const next = await createWasmSearch({ signal: controller.signal, onProgress: fraction => { if (!controller.signal.aborted) setProgress(fraction); }, onTiming: ({ phase, elapsedMs }) => {
+      const next = await createWasmSearch({ signal: controller.signal, onProgress: fraction => { if (!controller.signal.aborted) setProgress(fraction); }, onTiming: ({ phase, elapsedMs, faqCacheHit }) => {
         if (controller.signal.aborted || lifecycle.current.signal.aborted) return;
         if (phase === 'startup') setWasmStartupMs(elapsedMs);
-        else setWasmSearchTimes(values => [...values.slice(-199), elapsedMs]);
+        else {
+          setWasmSearchTimes(values => [...values.slice(-199), elapsedMs]);
+          if (faqCacheHit === false) setWasmFaqCacheMissMs(elapsedMs);
+          if (faqCacheHit === true) setWasmFaqCacheHitTimes(values => [...values.slice(-199), elapsedMs]);
+        }
       }, onClosed: () => {
         if (provider.current === 'wasm') { provider.current = null; model.current = null; setWasmState('off'); }
       } });
@@ -189,7 +196,7 @@ function App() {
               <h3>Optional browser inference</h3>
               <details className="model-panel"><summary>Optional on-device search <span>{modelState === 'ready' || wasmState === 'ready' ? 'ON' : 'OFF'} &nbsp; +</span></summary><div className="model-content"><p>Instant chat works without a model. Experimental search can suggest related prewritten answers; suggestions may be wrong, so check the evidence. Choose one option at a time.</p><strong>Browser language model</strong><p className="model-status" role="status">{modelLabel[modelState]}</p><button type="button" onClick={() => void toggleModel()} disabled={wasmState === 'ready' || wasmState === 'loading' || (!modelCanEnable && modelState !== 'ready')}>{modelState === 'ready' ? 'Turn off model' : 'Enable on-device model'}</button><p>Your browser may download a model after you enable it. Questions are processed by the browser-provided API.</p><strong>WASM semantic search</strong><p className="model-status" role="status">{wasmState === 'loading' ? `Loading model${progress === null ? '…' : ` · ${Math.round(progress * 100)}%`}` : wasmState === 'ready' ? 'Enabled on this device' : wasmState === 'error' ? 'Could not start; instant chat still works' : 'Off'}</p><button type="button" onClick={() => void toggleWasm()} disabled={modelState === 'ready' || modelState === 'loading' || wasmState === 'loading'}>{wasmState === 'ready' ? 'Turn off WASM search' : 'Enable WASM search'}</button><p>Downloads a model (about 23 MB) from Hugging Face plus the WASM runtime from this site or jsDelivr after you enable it. Questions are processed locally in a worker and are not sent to those services by this app.</p>{(modelState === 'loading' || wasmState === 'loading') && <button type="button" onClick={cancelLoading}>Cancel loading</button>}</div></details>
               <h3>Local performance diagnostics</h3>
-              <PerformancePanel decisionTimes={decisionTimes} wasmStartupMs={wasmStartupMs} wasmSearchTimes={wasmSearchTimes} />
+              <PerformancePanel decisionTimes={decisionTimes} wasmStartupMs={wasmStartupMs} wasmSearchTimes={wasmSearchTimes} wasmFaqCacheMissMs={wasmFaqCacheMissMs} wasmFaqCacheHitTimes={wasmFaqCacheHitTimes} />
             </div>
           </div>
         </details>

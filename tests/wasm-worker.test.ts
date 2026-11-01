@@ -31,16 +31,16 @@ describe('WASM worker inference reuse', () => {
 
     const candidates = ['Java backend skills', 'React frontend skills'];
     emit({ type: 'search', id: 1, question: 'Java expertise?', candidates });
-    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 1, index: 0 }));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 1, index: 0, faqCacheHit: false }));
     expect(mock.calls).toEqual([candidates, ['Java expertise?']]);
 
     emit({ type: 'search', id: 2, question: 'React expertise?', candidates });
-    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 2, index: 1 }));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 2, index: 1, faqCacheHit: true }));
     expect(mock.calls).toEqual([candidates, ['Java expertise?'], ['React expertise?']]);
 
     const updated = ['Java API experience', 'React frontend skills'];
     emit({ type: 'search', id: 3, question: 'Java API?', candidates: updated });
-    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 3, index: 0 }));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 3, index: 0, faqCacheHit: false }));
     expect(mock.calls).toEqual([candidates, ['Java expertise?'], ['React expertise?'], updated, ['Java API?']]);
   });
 });
