@@ -69,7 +69,10 @@ try {
   await call('Page.enable'); await call('Runtime.enable'); await call('Network.enable'); await call('Accessibility.enable');
   async function pressEnter() {
     const key = { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 };
+    // CDP keyDown alone does not produce the Enter character/default action
+    // in headless Chromium: dispatch the char event before keyUp.
     await call('Input.dispatchKeyEvent', { ...key, type: 'keyDown' });
+    await call('Input.dispatchKeyEvent', { ...key, type: 'char', text: '\\r' });
     await call('Input.dispatchKeyEvent', { ...key, type: 'keyUp' });
   }
   async function evaluate(expression) {
