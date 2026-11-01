@@ -282,10 +282,12 @@ try {
         const finalText = await evaluate('document.querySelector(".exchange:last-child .agent-message .bubble")?.textContent ?? ""');
         const traced = await evaluate('window.__wasmProbe');
         const matched = sample.faq.find(faq => finalText.includes('Related information from the public profile: ' + faq.answer));
+        const evidenceLinks = await evaluate('document.querySelectorAll(".exchange:last-child .sources a").length');
+        if (matched) assert(evidenceLinks > 0 && finalText.includes('I can’t verify the specific claim'), 'A WASM FAQ selection must retain sources and a non-verification warning.');
         const result = { category: row.category, question: row.question,
           ...(row.faqId ? { expectedFaqId: row.faqId } : {}),
           wasmAttempt: traced.started, returnedFaqId: matched?.id ?? null,
-          privateRefusal: finalText.includes('I can only discuss information the candidate chose to publish'),
+          privateRefusal: finalText.includes('I can only discuss information the candidate chose to publish'), evidenceLinks,
           elapsedUiMs: Number((performance.now() - startedAt).toFixed(1)) };
         benchmarkReport.results.push(result);
         if (row.category === 'sensitive') assert(!result.wasmAttempt && result.privateRefusal, 'Sensitive query reached the model or was not refused: ' + row.question);
@@ -297,6 +299,11 @@ try {
           selectedFaqs: actual.filter(row => row.returnedFaqId !== null).length,
           correctSelections: actual.filter(row => row.returnedFaqId === row.expectedFaqId && !!row.expectedFaqId).length }];
       }));
+      const paraphrase = benchmarkReport.summary.paraphrases;
+      const unrelated = benchmarkReport.summary.unrelated;
+      benchmarkReport.correctFaqRate = paraphrase.modelAttempts ? paraphrase.correctSelections / paraphrase.modelAttempts : null;
+      benchmarkReport.unrelatedFalseRelatedRate = unrelated.modelAttempts ? unrelated.selectedFaqs / unrelated.modelAttempts : null;
+      benchmarkReport.summaryNote = 'Rates use only actual WASM attempts; null means no measurable sample. Absent a model calibration gate, these are observational and may show unsafe relevance.';
       benchmarkReport.performancePanel = await evaluate('Object.fromEntries([...document.querySelectorAll(".performance-panel dl div")].map(row => [row.querySelector("dt")?.textContent ?? "", row.querySelector("dd")?.textContent ?? ""]))');
       wasmEvaluation = benchmarkReport;
     } catch (error) {
