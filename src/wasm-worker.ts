@@ -45,7 +45,7 @@ scope.addEventListener('message', event => {
   if (value.type !== 'search' || !extractor || working || !('question' in value) || !('candidates' in value) || !('id' in value)) return;
   const { question, candidates, id } = value;
   if (typeof id !== 'number' || !Number.isSafeInteger(id) || typeof question !== 'string' || question.length > 2000 || !Array.isArray(candidates) || candidates.length === 0 || candidates.length > 40 || !candidates.every((candidate: unknown) => typeof candidate === 'string' && candidate.length <= 1200)) {
-    scope.postMessage({ type: 'result', id, index: null });
+    scope.postMessage({ type: 'result', id, index: null, ok: false });
     return;
   }
   working = true;
@@ -87,6 +87,6 @@ scope.addEventListener('message', event => {
       query[i] = number;
     }
     return rankRelatedEmbedding(query, vectors, dimensions);
-  })().then(index => scope.postMessage({ type: 'result', id, index, faqCacheHit }))
-    .catch(() => scope.postMessage({ type: 'result', id, index: null, faqCacheHit })).finally(() => { working = false; });
+  })().then(index => scope.postMessage({ type: 'result', id, index, faqCacheHit, ok: true }))
+    .catch(() => scope.postMessage({ type: 'result', id, index: null, faqCacheHit, ok: false })).finally(() => { working = false; });
 });
