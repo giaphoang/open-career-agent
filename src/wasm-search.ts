@@ -88,7 +88,7 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
         const request = pending; pending = undefined; request.cleanup();
         if (!request.cancelled) {
           const index = value.index;
-          reportTiming('query', request.startedAt, typeof value.faqCacheHit === 'boolean' ? value.faqCacheHit : undefined);
+          reportTiming('query', request.startedAt, 'faqCacheHit' in value && typeof value.faqCacheHit === 'boolean' ? value.faqCacheHit : undefined);
           request.resolve(typeof index === 'number' && Number.isSafeInteger(index) && index >= 0 && index < request.count ? index : null);
         }
       }
