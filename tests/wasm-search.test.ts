@@ -24,6 +24,41 @@ async function ready(onClosed = vi.fn()) {
 }
 
 describe('WASM worker boundary', () => {
+  it('measures startup and successful query wall-clock latency without recording aborted work', async () => {
+    vi.stubGlobal('Worker', FakeWorker);
+    const onTiming = vi.fn();
+    const created = createWasmSearch({ signal: new AbortController().signal, onTiming });
+    const worker = FakeWorker.last;
+    worker.emit({ type: 'ready' });
+    const search = await created;
+    expect(onTiming).toHaveBeenCalledTimes(1);
+    expect(onTiming).toHaveBeenCalledWith({ phase: 'startup', elapsedMs: expect.any(Number) });
+    const pending = search.select('Java work?', faqs, new AbortController().signal);
+    worker.emit({ type: 'result', id: 1, index: 0 });
+    expect(await pending).toBe(0);
+    expect(onTiming).toHaveBeenCalledTimes(2);
+    const duration = onTiming.mock.calls[1]![0] as { phase: string; elapsedMs: number };
+    expect(duration.phase).toBe('query');
+    expect(duration.elapsedMs).toBeGreaterThanOrEqual(0);
+    const controller = new AbortController();
+    const aborted = search.select('React work?', faqs, controller.signal);
+    controller.abort();
+    expect(await aborted).toBeNull();
+    expect(onTiming).toHaveBeenCalledTimes(2);
+  });
+  it('does not break search if a timing observer throws', async () => {
+    vi.stubGlobal('Worker', FakeWorker);
+    const created = createWasmSearch({
+      signal: new AbortController().signal,
+      onTiming: () => { throw new Error('broken local observer'); },
+    });
+    FakeWorker.last.emit({ type: 'ready' });
+    const search = await created;
+    const pending = search.select('Java work?', faqs, new AbortController().signal);
+    FakeWorker.last.emit({ type: 'result', id: 1, index: 0 });
+    expect(await pending).toBe(0);
+    search.dispose();
+  });
   it('starts only when requested and validates a successful worker response', async () => {
     const { worker, search, onClosed } = await ready();
     const pending = search.select('Have you built React UIs?', faqs, new AbortController().signal);
