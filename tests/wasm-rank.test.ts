@@ -17,6 +17,23 @@ describe('conservative WASM embedding retrieval', () => {
     expect(rankRelatedEmbedding([1, 0], [1, 0, 0.999, 0.0447], 2)).toBeNull();
   });
 
+  it('compares independent FAQ aliases without treating synonyms as competitors', () => {
+    // Two exact synonyms for FAQ 0 must not trigger a false tie against themselves.
+    expect(rankRelatedEmbedding([1, 0], [1, 0, 1, 0, 0, 1], 2, [0, 0, 1])).toBe(0);
+    expect(rankRelatedEmbedding([1, 0], [1, 0, 1, 0], 2, [0, 0])).toBe(0);
+    // Equal or nearly-equal scores between DISTINCT FAQs remain unsafe.
+    expect(rankRelatedEmbedding([1, 0], [1, 0, 1, 0], 2, [0, 1])).toBeNull();
+    expect(rankRelatedEmbedding([1, 0], [1, 0, 0.99, 0.141], 2, [0, 1])).toBeNull();
+  });
+
+  it('rejects invalid alias mappings and oversized inputs', () => {
+    expect(rankRelatedEmbedding([1, 0], [1, 0, 0, 1], 2, [0])).toBeNull();
+    expect(rankRelatedEmbedding([1, 0], [1, 0], 2, [-1])).toBeNull();
+    expect(rankRelatedEmbedding([1, 0], [1, 0], 2, [40])).toBeNull();
+    expect(rankRelatedEmbedding([1, 0], [1, 0, 0, 1], 2, [1, 0])).toBeNull();
+    expect(rankRelatedEmbedding([1], new Float32Array(201).fill(1), 1, Array(201).fill(0))).toBeNull();
+  });
+
   it('rejects malformed tensor shapes and non-finite or zero embeddings', () => {
     expect(rankRelatedEmbedding([1], [], 1)).toBeNull();
     expect(rankRelatedEmbedding([1, 0], [1], 2)).toBeNull();
