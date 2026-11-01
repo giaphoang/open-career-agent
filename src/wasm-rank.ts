@@ -21,7 +21,7 @@ export function rankRelatedEmbedding(
     candidates.length / dimensions > (groupIds ? 200 : 40)) return null;
   const rows = candidates.length / dimensions;
   if (groupIds && (groupIds.length !== rows || groupIds.some((id, i) =>
-    !Number.isSafeInteger(id) || id < 0 || id >= 40 || (i > 0 && id < groupIds[i - 1])))) return null;
+    !Number.isSafeInteger(id) || id < 0 || id >= 40 || (i > 0 && id < groupIds[i - 1]!)))) return null;
 
   let queryNormSquared = 0;
   for (let col = 0; col < dimensions; col++) {
@@ -44,14 +44,14 @@ export function rankRelatedEmbedding(
     if (!Number.isFinite(rowNormSquared) || rowNormSquared <= 0) return null;
     const cosine = dot / Math.sqrt(queryNormSquared * rowNormSquared);
     if (!Number.isFinite(cosine)) return null;
-    const faqIndex = groupIds ? groupIds[row] : row;
-    if (cosine > bestByFaq[faqIndex]) bestByFaq[faqIndex] = cosine;
+    const faqIndex = groupIds ? groupIds[row]! : row;
+    if (cosine > bestByFaq[faqIndex]!) bestByFaq[faqIndex] = cosine;
   }
   let bestIndex = -1;
   let best = -Infinity;
   let secondBest = -Infinity;
   for (let faqIndex = 0; faqIndex < bestByFaq.length; faqIndex++) {
-    const cosine = bestByFaq[faqIndex];
+    const cosine = bestByFaq[faqIndex]!;
     if (cosine > best) {
       secondBest = best;
       best = cosine;
