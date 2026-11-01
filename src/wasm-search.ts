@@ -14,10 +14,10 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
   if (options.signal.aborted) return Promise.reject(new Error('Canceled.'));
   if (typeof Worker === 'undefined') return Promise.reject(new Error('Web Workers are not supported.'));
   return new Promise((resolve, reject) => {
+    const startupBeganAt = performance.now();
     let worker: Worker;
     try { worker = new Worker(new URL('./wasm-worker.ts', import.meta.url), { type: 'module' }); }
     catch { reject(new Error('Could not start WASM worker.')); return; }
-    const startupBeganAt = performance.now();
     let closed = false;
     let ready = false;
     let sequence = 0;
@@ -34,6 +34,10 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
       if (ready) options.onClosed?.();
     }
     function failStart(message: string) { shutdown(); reject(new Error(message)); }
+    function reportTiming(phase: WasmTiming['phase'], startedAt: number) {
+      // Monitoring must never change whether an evidence-backed answer resolves.
+      try { options.onTiming?.({ phase, elapsedMs: Math.max(0, performance.now() - startedAt) }); } catch { /* observer failure is non-fatal */ }
+    }
     options.signal.addEventListener('abort', abortStartup, { once: true });
     if (options.signal.aborted) { abortStartup(); return; }
     worker.onerror = () => { if (ready) shutdown(); else failStart('Could not load the WASM model.'); };
@@ -48,7 +52,7 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
         ready = true;
         clearTimeout(startupTimer);
         options.signal.removeEventListener('abort', abortStartup);
-        options.onTiming?.({ phase: 'startup', elapsedMs: performance.now() - startupBeganAt });
+        reportTiming('startup', startupBeganAt);
         resolve({
           select(question, candidates, signal) {
             if (closed || pending || signal.aborted || !question.trim() || question.length > 2000 || candidates.length === 0 || candidates.length > 40) return Promise.resolve(null);
@@ -75,7 +79,7 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
       if (value.type === 'result' && pending && 'id' in value && value.id === pending.id && 'index' in value) {
         const request = pending; pending = undefined; request.cleanup();
         const index = value.index;
-        options.onTiming?.({ phase: 'query', elapsedMs: performance.now() - request.startedAt });
+        reportTiming('query', request.startedAt);
         request.resolve(typeof index === 'number' && Number.isSafeInteger(index) && index >= 0 && index < request.count ? index : null);
       }
     };
