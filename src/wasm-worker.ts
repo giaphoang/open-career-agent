@@ -1,5 +1,6 @@
 /** Run untrusted queries only as local embedding inputs, never as model instructions. */
 import { env, pipeline } from '@huggingface/transformers';
+import { rankRelatedEmbedding } from './wasm-rank';
 
 // This module only runs as a dedicated Worker; TypeScript's DOM configuration
 // does not include the separate WebWorker global type.
@@ -15,6 +16,12 @@ if (env.backends.onnx.wasm) env.backends.onnx.wasm.numThreads = 1;
 
 let extractor: Awaited<ReturnType<typeof makeExtractor>> | undefined;
 let working = false;
+// Only the latest FAQ set is cached; replacing the profile replaces this cache.
+// One set of up to 40 normalized embeddings is small (about 60 KiB at 384 dims).
+let cachedKey: string | null = null;
+let cachedVectors: Float32Array | null = null;
+let cachedDimensions = 0;
+
 const makeExtractor = () => pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
   revision: '751bff37182d3f1213fa05d7196b954e230abad9',
   device: 'wasm',
@@ -44,22 +51,38 @@ scope.addEventListener('message', event => {
   working = true;
   const currentExtractor = extractor;
   void (async () => {
-    const embeddings = await currentExtractor([question, ...candidates], { pooling: 'mean', normalize: true });
-    const dimensions = embeddings.dims[1];
-    if (!dimensions || embeddings.dims[0] !== candidates.length + 1 || embeddings.data.length !== (candidates.length + 1) * dimensions) return null;
-    let best: number | null = null;
-    let bestScore = -Infinity;
-    for (let index = 0; index < candidates.length; index++) {
-      let score = 0;
-      for (let column = 0; column < dimensions; column++) {
-        const a = Number(embeddings.data[column]);
-        const b = Number(embeddings.data[(index + 1) * dimensions + column]);
-        if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
-        score += a * b;
+    const key = JSON.stringify(candidates);
+    let vectors = cachedVectors;
+    let dimensions = cachedDimensions;
+    if (!vectors || key !== cachedKey) {
+      // Previous version embedded every FAQ on every question. This work is
+      // invariant for a static CV, so compute it only once per candidate set.
+      const faqEmbeddings = await currentExtractor(candidates, { pooling: 'mean', normalize: true });
+      dimensions = faqEmbeddings.dims[1] ?? 0;
+      if (faqEmbeddings.dims.length !== 2 || !dimensions || faqEmbeddings.dims[0] !== candidates.length ||
+        faqEmbeddings.data.length !== candidates.length * dimensions) return null;
+      const copy = new Float32Array(faqEmbeddings.data.length);
+      for (let i = 0; i < copy.length; i++) {
+        const number = Number(faqEmbeddings.data[i]);
+        if (!Number.isFinite(number)) return null;
+        copy[i] = number;
       }
-      if (score > bestScore) { bestScore = score; best = index; }
+      vectors = copy;
+      cachedVectors = copy;
+      cachedDimensions = dimensions;
+      cachedKey = key;
     }
-    return best;
+    // Only one short recruiter question requires inference on repeat turns.
+    const questionEmbedding = await currentExtractor([question], { pooling: 'mean', normalize: true });
+    if (questionEmbedding.dims.length !== 2 || questionEmbedding.dims[0] !== 1 ||
+      questionEmbedding.dims[1] !== dimensions || questionEmbedding.data.length !== dimensions) return null;
+    const query = new Float32Array(dimensions);
+    for (let i = 0; i < dimensions; i++) {
+      const number = Number(questionEmbedding.data[i]);
+      if (!Number.isFinite(number)) return null;
+      query[i] = number;
+    }
+    return rankRelatedEmbedding(query, vectors, dimensions);
   })().then(index => scope.postMessage({ type: 'result', id, index }))
     .catch(() => scope.postMessage({ type: 'result', id, index: null })).finally(() => { working = false; });
 });
