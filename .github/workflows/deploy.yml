@@ -24,6 +24,14 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm test
       - run: npm run evaluate
+      - run: npm run evaluate:corpus
+      - name: Upload synthetic retrieval evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrieval-evaluation-${{ github.run_id }}
+          path: artifacts/retrieval-corpus/report.json
+          if-no-files-found: ignore
       - run: npm run build
       - name: Browser smoke · desktop/mobile and offline fallback
         run: node scripts/browser-smoke.mjs
