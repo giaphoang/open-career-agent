@@ -8,7 +8,8 @@
     "build": "node --experimental-strip-types scripts/validate-profile.mjs && tsc -b && vite build",
     "test": "vitest run",
     "evaluate": "node --experimental-strip-types scripts/evaluate.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "evaluate:corpus": "node --experimental-strip-types scripts/evaluate-corpus.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "4.3.2",
