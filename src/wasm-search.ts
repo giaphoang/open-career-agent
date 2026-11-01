@@ -1,7 +1,7 @@
 import type { FaqOption } from './browser-llm';
 
 /** In-browser wall-clock measurements. No data leaves the current tab. */
-export interface WasmTiming { phase: 'startup' | 'query'; elapsedMs: number }
+export interface WasmTiming { phase: 'startup' | 'query'; elapsedMs: number; /** True only when the worker reused already embedded FAQ vectors. */ faqCacheHit?: boolean }
 
 export interface WasmSearch {
   /** An embedding match is only related information, never proof of a claim. */
@@ -34,9 +34,10 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
       if (ready) options.onClosed?.();
     }
     function failStart(message: string) { shutdown(); reject(new Error(message)); }
-    function reportTiming(phase: WasmTiming['phase'], startedAt: number) {
+    function reportTiming(phase: WasmTiming['phase'], startedAt: number, faqCacheHit?: boolean) {
       // Monitoring must never change whether an evidence-backed answer resolves.
-      try { options.onTiming?.({ phase, elapsedMs: Math.max(0, performance.now() - startedAt) }); } catch { /* observer failure is non-fatal */ }
+      try { options.onTiming?.({ phase, elapsedMs: Math.max(0, performance.now() - startedAt),
+        ...(typeof faqCacheHit === 'boolean' ? { faqCacheHit } : {}) }); } catch { /* observer failure is non-fatal */ }
     }
     options.signal.addEventListener('abort', abortStartup, { once: true });
     if (options.signal.aborted) { abortStartup(); return; }
@@ -87,7 +88,7 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
         const request = pending; pending = undefined; request.cleanup();
         if (!request.cancelled) {
           const index = value.index;
-          reportTiming('query', request.startedAt);
+          reportTiming('query', request.startedAt, typeof value.faqCacheHit === 'boolean' ? value.faqCacheHit : undefined);
           request.resolve(typeof index === 'number' && Number.isSafeInteger(index) && index >= 0 && index < request.count ? index : null);
         }
       }
