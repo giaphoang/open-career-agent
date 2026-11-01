@@ -82,15 +82,31 @@ describe('WASM worker boundary', () => {
     search.dispose();
   });
 
-  it('terminates and resolves without an answer when a search is canceled', async () => {
-    const { worker, search, onClosed } = await ready();
+  it('cancels stale results without unloading WASM; resumes search after worker finishes', async () => {
+    const onTiming = vi.fn();
+    vi.stubGlobal('Worker', FakeWorker);
+    const created = createWasmSearch({ signal: new AbortController().signal, onTiming });
+    const worker = FakeWorker.last;
+    worker.emit({ type: 'ready' });
+    const search = await created;
     const controller = new AbortController();
     const pending = search.select('Java?', faqs, controller.signal);
     controller.abort();
     expect(await pending).toBeNull();
-    expect(worker.terminate).toHaveBeenCalledOnce();
-    expect(onClosed).toHaveBeenCalledOnce();
+    // Cancelled inference is still occupying the worker. Do not enqueue a
+    // search that the busy worker would silently ignore.
     expect(await search.select('React?', faqs, new AbortController().signal)).toBeNull();
+    expect(worker.postMessage).toHaveBeenCalledTimes(2); // init + original search
+    expect(worker.terminate).not.toHaveBeenCalled();
+    worker.emit({ type: 'result', id: 1, index: 0 });
+    expect(onTiming).toHaveBeenCalledTimes(1); // startup only; stale result is not timed
+    const next = search.select('React?', faqs, new AbortController().signal);
+    expect(worker.postMessage).toHaveBeenCalledTimes(3);
+    worker.emit({ type: 'result', id: 2, index: 1 });
+    expect(await next).toBe(1);
+    expect(onTiming).toHaveBeenCalledTimes(2);
+    search.dispose();
+    expect(worker.terminate).toHaveBeenCalledOnce();
   });
 
   it('stops an explicitly started download when canceled and reports failures', async () => {
