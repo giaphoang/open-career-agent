@@ -6,6 +6,7 @@ vi.mock('@huggingface/transformers', () => ({
   pipeline: vi.fn(async () => async (items: string[]) => {
     mock.calls.push([...items]);
     if (items.includes('SIMULATE_FAILURE')) throw new Error('simulated embedding failure');
+    if (items.includes('MALFORMED_TENSOR')) return { dims: [1, 99], data: new Float32Array([1, 0]) };
     const data = items.flatMap(text => /java/i.test(text) ? [1, 0] : /react/i.test(text) ? [0, 1] : [-1, 0]);
     return { dims: [items.length, 2], data: Float32Array.from(data) };
   }),
@@ -50,5 +51,7 @@ describe('WASM worker inference reuse', () => {
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 4, index: null, faqCacheHit: true, ok: false }));
     emit({ type: 'search', id: 5, question: 'React follow-up?', candidates: updated });
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 5, index: 1, faqCacheHit: true, ok: true }));
+    emit({ type: 'search', id: 6, question: 'MALFORMED_TENSOR', candidates: updated });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 6, index: null, faqCacheHit: true, ok: false }));
   });
 });
