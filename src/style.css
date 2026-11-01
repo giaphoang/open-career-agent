@@ -33,3 +33,14 @@
 .developer-settings .model-content,.developer-settings .performance-content{padding-left:16px;padding-right:16px}
 @media(max-width:900px){.workspace{grid-template-columns:minmax(0,1fr) 250px}}
 @media(max-width:650px){.workspace{grid-template-columns:minmax(0,1fr)}.hero{padding-top:36px;padding-bottom:22px}.hero h1{font-size:clamp(34px,9vw,48px)}.developer-content{padding:18px}.developer-tools>summary{padding:16px 18px}}
+
+/* Recruiter mobile UX: readable chat and 44px primary tap targets.
+   A 16px input avoids automatic focus zoom in mobile Safari. */
+@media(max-width:650px){
+  .composer input{font-size:16px}
+  .composer button{width:44px;height:44px;flex:0 0 44px}
+  .chat-tools button,.suggestions button,.skill-buttons button,.project-content .tags button,.skill-picker button,.top-contact,.profile-link{min-height:44px}
+  .chat-tools button,.suggestions button,.skill-buttons button,.project-content .tags button,.skill-picker button{font-size:12px}
+  .bubble,.user-bubble{font-size:15px}
+  .profile-link{align-items:center}
+}
