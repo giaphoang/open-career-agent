@@ -26,7 +26,21 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   document.body.innerHTML = '<div id="root"></div>';
   Element.prototype.scrollIntoView = vi.fn();
   await act(async () => { await import('../src/main'); });
+  // Recruiters see the interview first; cloning and model diagnostics come last.
+  const workspace = document.querySelector('.workspace')!;
+  expect(workspace.firstElementChild?.classList.contains('chat-card')).toBe(true);
+  const developer = document.getElementById('for-developers')!;
+  const experience = document.getElementById('experience')!;
+  expect(Boolean(experience.compareDocumentPosition(developer) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+  expect(developer.querySelector('.studio-section')).toBeTruthy();
+  expect(developer.querySelector('.model-panel')).toBeTruthy();
+  expect(developer.querySelector('.performance-panel')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Ask about experience' })).toBeTruthy();
   const firstFaq = rawProfile.faq[0]!;
+  // The single-click example must show the authored answer and its evidence.
+  fireEvent.click(screen.getByRole('button', { name: /See an example answer with sources/ }));
+  expect(screen.getByText(firstFaq.answer)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
   fireEvent.click(screen.getByRole('button', { name: new RegExp(firstFaq.questions[0]!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }));
   expect(screen.getByText(firstFaq.answer)).toBeTruthy();
   const firstSource = rawProfile.evidence.find(item => firstFaq.evidenceIds.includes(item.id))!;
@@ -59,6 +73,8 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   expect(screen.queryByText(/Public profile matches:/)).toBeNull();
   expect(screen.queryByText('Staff backend engineer')).toBeNull();
 
+  fireEvent.click(screen.getByText(/For developers · Clone this template/));
+  expect((document.querySelector('.developer-tools') as HTMLDetailsElement).open).toBe(true);
   fireEvent.click(screen.getByText(/Optional on-device search/));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Enable on-device model' }).hasAttribute('disabled')).toBe(false));
   fireEvent.click(screen.getByRole('button', { name: 'Enable on-device model' }));
