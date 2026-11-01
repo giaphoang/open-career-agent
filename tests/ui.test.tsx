@@ -36,6 +36,11 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   expect(developer.querySelector('.model-panel')).toBeTruthy();
   expect(developer.querySelector('.performance-panel')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Ask about experience' })).toBeTruthy();
+  const skip = screen.getByRole('link', { name: 'Skip to interview chat' });
+  expect(skip.getAttribute('href')).toBe('#conversation');
+  expect(document.querySelector('#root')?.firstElementChild).toBe(skip);
+  fireEvent.click(skip);
+  expect(document.activeElement?.id).toBe('question');
   const firstFaq = rawProfile.faq[0]!;
   // The single-click example must show the authored answer and its evidence.
   fireEvent.click(screen.getByRole('button', { name: /See an example answer with sources/ }));
