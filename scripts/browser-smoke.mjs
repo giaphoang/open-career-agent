@@ -100,6 +100,7 @@ try {
     if (v.mobile) assert(layout.chatFirst, 'Mobile should show recruiter chat before sidebar.');
     const ax = await call('Accessibility.getFullAXTree');
     const names = ax.nodes.filter(n => n.role?.value === 'button').map(n => n.name?.value);
+    console.log(v.name + ' accessibility button names: ' + JSON.stringify(names));
     assert(names.includes('Ask about experience') && names.includes('Send question'), 'Recruiter controls need accessible button names.');
     await call('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
     await evaluate('document.querySelector(".hero-example").click(); true');
