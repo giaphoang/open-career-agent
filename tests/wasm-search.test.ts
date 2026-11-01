@@ -77,7 +77,7 @@ describe('WASM worker boundary', () => {
   it('starts only when requested and validates a successful worker response', async () => {
     const { worker, search, onClosed } = await ready();
     const pending = search.select('Have you built React UIs?', faqs, new AbortController().signal);
-    expect(worker.postMessage).toHaveBeenLastCalledWith({ type: 'search', id: 1, question: 'Have you built React UIs?', candidates: faqs.map(entry => entry.questions[0]) });
+    expect(worker.postMessage).toHaveBeenLastCalledWith({ type: 'search', id: 1, question: 'Have you built React UIs?', candidates: faqs.map(entry => [...entry.questions]) });
     worker.emit({ type: 'result', ok: true, id: 1, index: 1 });
     expect(await pending).toBe(1);
     search.dispose();
