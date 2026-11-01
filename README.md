@@ -36,6 +36,8 @@ npm run evaluate
 
 The preview command serves the production build locally. These commands do not themselves publish a site.
 
+GitHub Actions tests pull requests and manually dispatched runs on feature branches without publishing them. Only a run targeting `main` may upload or deploy the public GitHub Pages site, and only the deploy job receives Pages/OIDC write permissions.
+
 ## Your data
 
 [`src/data/profile.json`](src/data/profile.json) is the source of the displayed profile and answers:
