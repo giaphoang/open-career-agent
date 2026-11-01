@@ -7,8 +7,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  pages: write
-  id-token: write
 concurrency:
   group: pages-${{ github.ref }}
   cancel-in-progress: false
@@ -25,13 +23,18 @@ jobs:
       - run: npm test
       - run: npm run evaluate
       - run: npm run build
-      - if: github.event_name != 'pull_request'
+      # Preview/PR builds are tested but never published to the public portfolio.
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
   deploy:
-    if: github.event_name != 'pull_request'
+    # Even manual workflow_dispatch runs from feature branches must not deploy.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: build
+    permissions:
+      pages: write
+      id-token: write
     runs-on: ubuntu-latest
     environment:
       name: github-pages
