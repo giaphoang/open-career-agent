@@ -152,7 +152,7 @@ function App() {
           <p>Hiring for a role? Explore my projects, decisions, and experience. Ask a question and review the public evidence behind the answer.</p>
           <div className="hero-meta"><span><span className="mini-dot"/> {profile.candidate.availability}</span><span>↳ &nbsp; No sign-up · No chat history saved</span></div>
           <div className="hero-actions">
-            <button type="button" onClick={focusChat}>Ask about experience <span aria-hidden="true">↗</span></button>
+            <button type="button" onClick={focusChat} aria-label="Ask about experience">Ask about experience <span aria-hidden="true">↗</span></button>
             <button type="button" className="secondary-action" onClick={beginInterview}>Discuss your open role</button>
           </div>
           {prompts.length > 0 && <button className="hero-example" type="button" onClick={() => { ask(prompts[0] ?? ''); focusChat(); }}>See an example answer with sources <span aria-hidden="true">↗</span></button>}
