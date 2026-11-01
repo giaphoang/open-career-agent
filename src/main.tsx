@@ -28,6 +28,8 @@ function App() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [decisionTimes, setDecisionTimes] = useState<number[]>([]);
+  const [wasmStartupMs, setWasmStartupMs] = useState<number | null>(null);
+  const [wasmSearchTimes, setWasmSearchTimes] = useState<number[]>([]);
   const [interview, setInterview] = useState<InterviewState | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
@@ -115,12 +117,16 @@ function App() {
     if (provider.current === 'wasm' && model.current) {
       const active = model.current; provider.current = null; pending.current?.abort(); setModelSearching(false); active.dispose(); model.current = null; setWasmState('off'); return;
     }
-    setWasmState('loading'); setProgress(null);
+    setWasmState('loading'); setProgress(null); setWasmStartupMs(null); setWasmSearchTimes([]);
     const controller = new AbortController(); startup.current = controller;
     try {
       const { createWasmSearch } = await import('./wasm-search');
       if (controller.signal.aborted) return;
-      const next = await createWasmSearch({ signal: controller.signal, onProgress: fraction => { if (!controller.signal.aborted) setProgress(fraction); }, onClosed: () => {
+      const next = await createWasmSearch({ signal: controller.signal, onProgress: fraction => { if (!controller.signal.aborted) setProgress(fraction); }, onTiming: ({ phase, elapsedMs }) => {
+        if (controller.signal.aborted || lifecycle.current.signal.aborted) return;
+        if (phase === 'startup') setWasmStartupMs(elapsedMs);
+        else setWasmSearchTimes(values => [...values.slice(-199), elapsedMs]);
+      }, onClosed: () => {
         if (provider.current === 'wasm') { provider.current = null; model.current = null; setWasmState('off'); }
       } });
       if (controller.signal.aborted || lifecycle.current.signal.aborted) { next.dispose(); return; }
@@ -150,7 +156,7 @@ function App() {
           <form className="composer" onSubmit={submit}><label className="sr-only" htmlFor="question">{interview ? 'Answer the role question' : 'Ask a question about the portfolio'}</label><input ref={inputRef} id="question" value={input} onChange={event => setInput(event.target.value)} placeholder={interview ? 'Your answer, or type skip…' : 'Ask me anything about my work...'} autoComplete="off" maxLength={2000}/><button type="submit" aria-label="Send question">↑</button></form><div className="chat-foot"><span>✳ &nbsp; Check the sources; role answers stay in this tab.</span><span>NO CHAT SAVED</span></div>
           <details className="model-panel"><summary>Optional on-device search <span>{modelState === 'ready' || wasmState === 'ready' ? 'ON' : 'OFF'} &nbsp; +</span></summary><div className="model-content"><p>Instant chat works without a model. Experimental search can suggest related prewritten answers; suggestions may be wrong, so check the evidence. Choose one option at a time.</p><strong>Browser language model</strong><p className="model-status" role="status">{modelLabel[modelState]}</p><button type="button" onClick={() => void toggleModel()} disabled={wasmState === 'ready' || wasmState === 'loading' || (!modelCanEnable && modelState !== 'ready')}>{modelState === 'ready' ? 'Turn off model' : 'Enable on-device model'}</button><p>Your browser may download a model after you enable it. Questions are processed by the browser-provided API.</p><strong>WASM semantic search</strong><p className="model-status" role="status">{wasmState === 'loading' ? `Loading model${progress === null ? '…' : ` · ${Math.round(progress * 100)}%`}` : wasmState === 'ready' ? 'Enabled on this device' : wasmState === 'error' ? 'Could not start; instant chat still works' : 'Off'}</p><button type="button" onClick={() => void toggleWasm()} disabled={modelState === 'ready' || modelState === 'loading' || wasmState === 'loading'}>{wasmState === 'ready' ? 'Turn off WASM search' : 'Enable WASM search'}</button><p>Downloads a model (about 23 MB) from Hugging Face plus the WASM runtime from this site or jsDelivr after you enable it. Questions are processed locally in a worker and are not sent to those services by this app.</p>{(modelState === 'loading' || wasmState === 'loading') && <button type="button" onClick={cancelLoading}>Cancel loading</button>}</div></details>
           <JobMatchPanel profile={profile} />
-          <PerformancePanel decisionTimes={decisionTimes} />
+          <PerformancePanel decisionTimes={decisionTimes} wasmStartupMs={wasmStartupMs} wasmSearchTimes={wasmSearchTimes} />
         </div>
       </section>
       <section className="work-section shell" id="work"><div className="section-heading"><div><div className="eyebrow">SELECTED WORK <span className="slash">/</span> THE PROOF IS IN THE PROJECTS</div><h2>Made with intention<span>.</span></h2></div><p>A closer look at the projects, decisions, and details behind the experience.</p></div><div className="project-grid">{profile.projects.map((project, index) => <article className="project-card" key={project.id}><div className="project-head"><span>0{index + 1} &nbsp; / &nbsp; PROJECT</span><span>↗</span></div><div className="project-art" aria-hidden="true"><span>{['◈','◎','▦'][index % 3]}</span></div><div className="project-content"><div className="project-role">{project.role}</div><h3>{project.name}</h3><p>{project.summary}</p><div className="tags">{project.stack.map(item => <button type="button" key={item} onClick={() => findSkill(item)}>{item} ↗</button>)}</div><Sources ids={project.evidenceIds}/></div></article>)}</div></section>
