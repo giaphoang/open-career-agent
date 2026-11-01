@@ -46,6 +46,19 @@ describe('WASM worker boundary', () => {
     expect(await aborted).toBeNull();
     expect(onTiming).toHaveBeenCalledTimes(2);
   });
+  it('does not break search if a timing observer throws', async () => {
+    vi.stubGlobal('Worker', FakeWorker);
+    const created = createWasmSearch({
+      signal: new AbortController().signal,
+      onTiming: () => { throw new Error('broken local observer'); },
+    });
+    FakeWorker.last.emit({ type: 'ready' });
+    const search = await created;
+    const pending = search.select('Java work?', faqs, new AbortController().signal);
+    FakeWorker.last.emit({ type: 'result', id: 1, index: 0 });
+    expect(await pending).toBe(0);
+    search.dispose();
+  });
   it('starts only when requested and validates a successful worker response', async () => {
     const { worker, search, onClosed } = await ready();
     const pending = search.select('Have you built React UIs?', faqs, new AbortController().signal);
