@@ -36,6 +36,13 @@ npm run evaluate
 
 The preview command serves the production build locally. These commands do not themselves publish a site.
 
+### Browser smoke evidence
+
+CI runs `node scripts/browser-smoke.mjs` after the production build using installed Chromium/Chrome (Node.js 22+). It asserts recruiter-first content order, collapsed developer tools, accessible labels, no horizontal overflow at 1280px desktop and 390px mobile, and a cited answer while the network is offline **after initial page load**. It disables WebGPU and never enables optional on-device models. The workflow retains desktop/mobile screenshots and `report.json` as a downloadable Actions artifact, including on failed smoke tests.
+
+This is **not** a full WCAG audit, cold-offline validation, WebGPU benchmark, WASM inference test, or proof that evidence links independently substantiate every claim. Run a manual accessibility review and real-device WASM measurements before declaring production readiness.
+
+
 GitHub Actions tests pull requests and manually dispatched runs on feature branches without publishing them. Only a run targeting `main` may upload or deploy the public GitHub Pages site, and only the deploy job receives Pages/OIDC write permissions.
 
 ## Your data
