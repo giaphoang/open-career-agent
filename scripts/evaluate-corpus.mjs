@@ -9,7 +9,7 @@ const fixture = JSON.parse(await readFile(new URL('../tests/fixtures/sample-prof
 const corpus = JSON.parse(await readFile(new URL('../tests/fixtures/retrieval-corpus.json', import.meta.url), 'utf8'));
 const profile = validateProfile(fixture);
 const faqs = new Map(profile.faq.map(item => [item.id, item]));
-const normalize = value => value.toLocaleLowerCase('en-US').normalize('NFKC').replace(/[^\\p{L}\\p{N}+#]+/gu, ' ').trim().replace(/\\s+/g, ' ');
+const normalize = value => value.toLocaleLowerCase('en-US').normalize('NFKC').replace(/[^\p{L}\p{N}+#]+/gu, ' ').trim().replace(/\s+/g, ' ');
 const minimums = { paraphrases: 50, unrelated: 20, sensitive: 10, ambiguous: 10 };
 assert.equal(corpus.version, 1);
 const seen = new Set();
