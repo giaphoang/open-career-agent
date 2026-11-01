@@ -62,11 +62,11 @@ scope.addEventListener('message', event => {
       const faqEmbeddings = await currentExtractor(candidates, { pooling: 'mean', normalize: true });
       dimensions = faqEmbeddings.dims[1] ?? 0;
       if (faqEmbeddings.dims.length !== 2 || !dimensions || faqEmbeddings.dims[0] !== candidates.length ||
-        faqEmbeddings.data.length !== candidates.length * dimensions) return null;
+        faqEmbeddings.data.length !== candidates.length * dimensions) throw new Error('Invalid FAQ embeddings');
       const copy = new Float32Array(faqEmbeddings.data.length);
       for (let i = 0; i < copy.length; i++) {
         const number = Number(faqEmbeddings.data[i]);
-        if (!Number.isFinite(number)) return null;
+        if (!Number.isFinite(number)) throw new Error('Non-finite embedding');
         copy[i] = number;
       }
       vectors = copy;
@@ -75,15 +75,15 @@ scope.addEventListener('message', event => {
       cachedKey = key;
     }
     // The cache-miss branch must initialize vectors before cosine ranking.
-    if (!vectors) return null;
+    if (!vectors) throw new Error('Missing FAQ embeddings');
     // Only one short recruiter question requires inference on repeat turns.
     const questionEmbedding = await currentExtractor([question], { pooling: 'mean', normalize: true });
     if (questionEmbedding.dims.length !== 2 || questionEmbedding.dims[0] !== 1 ||
-      questionEmbedding.dims[1] !== dimensions || questionEmbedding.data.length !== dimensions) return null;
+      questionEmbedding.dims[1] !== dimensions || questionEmbedding.data.length !== dimensions) throw new Error('Invalid question embedding');
     const query = new Float32Array(dimensions);
     for (let i = 0; i < dimensions; i++) {
       const number = Number(questionEmbedding.data[i]);
-      if (!Number.isFinite(number)) return null;
+      if (!Number.isFinite(number)) throw new Error('Non-finite embedding');
       query[i] = number;
     }
     return rankRelatedEmbedding(query, vectors, dimensions);
