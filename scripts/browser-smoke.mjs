@@ -140,7 +140,7 @@ try {
     assert(skipLink?.first && skipLink.label === 'Skip to interview chat' && skipLink.target === '#conversation',
       'Keyboard skip link must be the first element and point to recruiter chat.');
     assert(skipLink.top >= 0 && skipLink.width >= 44 && skipLink.height >= 44,
-      'Focused skip link must be visible and usable in ' + v.name);
+      'Focused skip link must be visible and usable in ' + v.name + ': ' + JSON.stringify(skipLink));
     await pressEnter();
     await until(() => evaluate('document.activeElement?.id === "question"'),
       'Enter on skip link did not focus the recruiter question field on ' + v.name);
