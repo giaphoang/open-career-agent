@@ -107,9 +107,11 @@ try {
     await call('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
     await evaluate('document.querySelector(".hero-example").click(); true');
     await until(() => evaluate('document.querySelectorAll(".exchange .sources a").length > 0'), 'Offline evidence-backed answer failed on ' + v.name);
-    const screenshot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width: v.width, height: layout.scrollHeight, scale: 1 } });
+    // Chat content changes document height; measure AFTER the answer so full-page proof includes the footer.
+    const screenshotHeight = await evaluate('document.documentElement.scrollHeight');
+    const screenshot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width: v.width, height: screenshotHeight, scale: 1 } });
     await writeFile(join(output, v.name + '.png'), Buffer.from(screenshot.data, 'base64'));
-    results.push({ viewport: v.name, ...layout, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
+    results.push({ viewport: v.name, ...layout, screenshotHeight, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
   }
   const report = { browser, method: 'headless Chromium; WebGPU disabled; no local model enabled; network offline after initial load', results };
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2));
