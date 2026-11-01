@@ -72,7 +72,7 @@ try {
     // CDP keyDown alone does not produce the Enter character/default action
     // in headless Chromium: dispatch the char event before keyUp.
     await call('Input.dispatchKeyEvent', { ...key, type: 'keyDown' });
-    await call('Input.dispatchKeyEvent', { ...key, type: 'char', text: '\\r' });
+    await call('Input.dispatchKeyEvent', { ...key, type: 'char', text: '\r' });
     await call('Input.dispatchKeyEvent', { ...key, type: 'keyUp' });
   }
   async function evaluate(expression) {
