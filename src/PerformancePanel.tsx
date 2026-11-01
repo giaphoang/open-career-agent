@@ -42,7 +42,7 @@ export function PerformancePanel({ decisionTimes, wasmStartupMs = null, wasmSear
         <div><dt>WASM search p50 / p95</dt><dd>{wasmP50 === null || wasmP95 === null ? 'Ask an unanswered question with WASM enabled' : `${wasmP50.toFixed(1)} / ${wasmP95.toFixed(1)} ms`}</dd></div>
         <div><dt>Observed LCP candidate</dt><dd>{lcp === null ? 'Not available' : `${Math.round(lcp)} ms`}</dd></div>
       </dl>
-      <p>Engine-only timing excludes rendering and inference. WASM timing measures worker startup until ready and wall-clock search request to worker result, including messaging and inference; it excludes UI rendering and failed/canceled searches. Browser/network caches affect startup. LCP is the latest browser-reported candidate, not a p75 across visits. Browser support varies.</p>
+      <p>Engine-only timing excludes rendering and inference. WASM timing measures worker startup until ready and wall-clock search request to worker result, including messaging and inference; completed worker responses may include no match or internal worker errors. UI rendering, cancellations, and timeouts are excluded. Browser/network caches affect startup. LCP is the latest browser-reported candidate, not a p75 across visits. Browser support varies.</p>
     </div>
   </details>;
 }
