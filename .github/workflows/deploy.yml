@@ -47,6 +47,32 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+  wasm-evaluation:
+    # On-demand, real-model coverage for labeled synthetic cases. Not run on
+    # unrelated PRs: third-party model downloads can be large or unavailable.
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.title, '[WASM benchmark]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - name: Real Chromium WASM relevance and latency (opt-in)
+        run: RUN_WASM_EVAL=1 WASM_EVAL_PER_CATEGORY=100 node scripts/browser-smoke.mjs
+        timeout-minutes: 12
+      - name: Upload real WASM evidence, including partial results on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-relevance-${{ github.run_id }}
+          path: artifacts/browser-smoke/
+          if-no-files-found: ignore
   deploy:
     # Even manual workflow_dispatch runs from feature branches must not deploy.
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

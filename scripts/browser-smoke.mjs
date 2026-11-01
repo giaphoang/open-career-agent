@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, mkdir, writeFile, rm } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
+import { tmpdir, cpus, totalmem } from 'node:os';
 import { resolve, join, sep, extname } from 'node:path';
 import assert from 'node:assert/strict';
 
@@ -218,7 +218,106 @@ try {
     await writeFile(join(output, v.name + '.png'), Buffer.from(screenshot.data, 'base64'));
     results.push({ viewport: v.name, keyboardSkipLink: skipLink, ...layout, ...(mobileUsability ? { mobileUsability } : {}), ...keyboard, keyboardSubmitted: true, keyboardDeveloperDisclosure: true, screenshotHeight, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
   }
-  const report = { browser, method: 'headless Chromium; WebGPU disabled; no local model enabled; network offline after initial load', results };
+
+  // Opt-in REAL model evaluation. This path downloads the actual quantized WASM
+  // model, so regular smoke CI remains deterministic, offline, and fast.
+  // Example: RUN_WASM_EVAL=1 WASM_EVAL_PER_CATEGORY=8 node scripts/browser-smoke.mjs
+  let wasmEvaluation = null;
+  if (process.env.RUN_WASM_EVAL === '1') {
+    const sample = JSON.parse(await readFile('tests/fixtures/sample-profile.json', 'utf8'));
+    assert.deepEqual(JSON.parse(await readFile('src/data/profile.json', 'utf8')), sample,
+      'The real-model evaluation requires the fictional sample profile to match the labeled corpus.');
+    const corpus = JSON.parse(await readFile('tests/fixtures/retrieval-corpus.json', 'utf8'));
+    const perCategory = Number(process.env.WASM_EVAL_PER_CATEGORY ?? 8);
+    assert(Number.isSafeInteger(perCategory) && perCategory >= 1 && perCategory <= 100, 'WASM_EVAL_PER_CATEGORY must be 1-100.');
+    assert.equal(corpus.version, 1);
+    const rows = ['paraphrases', 'unrelated', 'sensitive', 'ambiguous']
+      .flatMap(category => corpus[category].slice(0, perCategory).map(row => ({ category, ...row })));
+    const waitModel = async (fn, timeoutMs, error) => {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        const value = await fn();
+        if (value) return value;
+        await pause(150);
+      }
+      throw new Error(error);
+    };
+    const benchmarkReport = { method: 'Real quantized MiniLM WASM in Chromium; explicit opt-in; browser UI end-to-end; synthetic fictional data', 
+      corpusVersion: corpus.version, browser, node: process.version, platform: process.platform, architecture: process.arch,
+      runnerHardware: { cpuModel: cpus()[0]?.model ?? 'unknown', logicalCores: cpus().length, visibleRamGiB: Number((totalmem() / 1024 ** 3).toFixed(1)) },
+      model: 'Xenova/all-MiniLM-L6-v2', modelRevision: '751bff37182d3f1213fa05d7196b954e230abad9',
+      perCategory, totalCorpusCases: Object.values(corpus).filter(Array.isArray).reduce((count, arr) => count + arr.length, 0),
+      sampledCases: rows.length, results: [], limitations: 'Chromium desktop CI runner only; not a mobile device or WebGPU test. No remote-model download byte measurement. UI wall time includes rendering; worker timings are separately displayed. No validation that linked evidence substantiates claims.' };
+    try {
+      await call('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+      await call('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+      const navigation = await call('Page.navigate', { url: 'http://127.0.0.1:' + server.address().port + '/' });
+      if (navigation.errorText) throw new Error(navigation.errorText);
+      await until(() => evaluate('document.readyState === "complete" && !!document.querySelector(".developer-tools")'), 'Benchmark page did not load.');
+      const pressed = await evaluate('(() => {document.querySelector(".developer-tools").open = true; document.querySelector(".model-panel").open = true; const button = [...document.querySelectorAll(".model-content button")].find(b => b.textContent.includes("Enable WASM search")); if (!button) return false; button.click(); return true;})()');
+      assert(pressed, 'Could not opt into WASM search.');
+      const beganAt = Date.now();
+      const status = await waitModel(async () => {
+        const label = await evaluate('document.querySelectorAll(".model-content .model-status")[1]?.textContent ?? ""');
+        return label.includes('Enabled on this device') ? 'ready' : label.includes('Could not start') ? 'error: ' + label : null;
+      }, 180_000, 'Real WASM model failed to become ready within 180 seconds.');
+      assert.equal(status, 'ready', 'Actual WASM startup failed: ' + status);
+      benchmarkReport.modelReadyWallMs = Date.now() - beganAt;
+      benchmarkReport.userAgent = await evaluate('navigator.userAgent');
+
+      for (const row of rows) {
+        const count = await evaluate('document.querySelectorAll(".exchange").length');
+        // Mutation observer tracks asynchronous inference separately from the
+        // immediate deterministic reply; it does not require any production hooks.
+        await evaluate('(() => {window.__wasmProbeObserver?.disconnect(); window.__wasmProbe = {started:false, finished:false}; window.__wasmProbeObserver = new MutationObserver(() => {const visible = !!document.querySelector(".model-searching"); if (visible) window.__wasmProbe.started=true; else if (window.__wasmProbe.started) window.__wasmProbe.finished=true;}); window.__wasmProbeObserver.observe(document.querySelector(".chat-body"), {childList:true, subtree:true}); return true;})()');
+        await evaluate('document.querySelector("#question").focus(); true');
+        const startedAt = performance.now();
+        await call('Input.insertText', { text: row.question });
+        await pressEnter();
+        await until(() => evaluate('document.querySelectorAll(".exchange").length > ' + count), 'No reply to synthetic query: ' + row.question);
+        const initial = await evaluate('document.querySelector(".exchange:last-child .agent-message .bubble")?.textContent ?? ""');
+        const probe = await evaluate('window.__wasmProbe');
+        // Only unknown deterministic answers invoke the optional WASM adapter.
+        const shouldRunWasm = initial.includes("I don't have enough public evidence") || probe.started;
+        if (shouldRunWasm) {
+          await waitModel(() => evaluate('window.__wasmProbe.finished'), 50_000, 'WASM inference did not complete: ' + row.question);
+        }
+        const finalText = await evaluate('document.querySelector(".exchange:last-child .agent-message .bubble")?.textContent ?? ""');
+        const traced = await evaluate('window.__wasmProbe');
+        const matched = sample.faq.find(faq => finalText.includes('Related information from the public profile: ' + faq.answer));
+        const evidenceLinks = await evaluate('document.querySelectorAll(".exchange:last-child .sources a").length');
+        if (matched) assert(evidenceLinks > 0 && finalText.includes('I can’t verify the specific claim'), 'A WASM FAQ selection must retain sources and a non-verification warning.');
+        const result = { category: row.category, question: row.question,
+          ...(row.faqId ? { expectedFaqId: row.faqId } : {}),
+          wasmAttempt: traced.started, returnedFaqId: matched?.id ?? null,
+          privateRefusal: finalText.includes('I can only discuss information the candidate chose to publish'), evidenceLinks,
+          elapsedUiMs: Number((performance.now() - startedAt).toFixed(1)) };
+        benchmarkReport.results.push(result);
+        if (row.category === 'sensitive') assert(!result.wasmAttempt && result.privateRefusal, 'Sensitive query reached the model or was not refused: ' + row.question);
+      }
+      benchmarkReport.summary = Object.fromEntries(['paraphrases','unrelated','sensitive','ambiguous'].map(category => {
+        const subset = benchmarkReport.results.filter(row => row.category === category);
+        const actual = subset.filter(row => row.wasmAttempt);
+        return [category, { checked: subset.length, modelAttempts: actual.length,
+          selectedFaqs: actual.filter(row => row.returnedFaqId !== null).length,
+          correctSelections: actual.filter(row => row.returnedFaqId === row.expectedFaqId && !!row.expectedFaqId).length }];
+      }));
+      const paraphrase = benchmarkReport.summary.paraphrases;
+      const unrelated = benchmarkReport.summary.unrelated;
+      benchmarkReport.correctFaqRate = paraphrase.modelAttempts ? paraphrase.correctSelections / paraphrase.modelAttempts : null;
+      benchmarkReport.unrelatedFalseRelatedRate = unrelated.modelAttempts ? unrelated.selectedFaqs / unrelated.modelAttempts : null;
+      benchmarkReport.summaryNote = 'Rates use only actual WASM attempts; null means no measurable sample. Absent a model calibration gate, these are observational and may show unsafe relevance.';
+      benchmarkReport.performancePanel = await evaluate('Object.fromEntries([...document.querySelectorAll(".performance-panel dl div")].map(row => [row.querySelector("dt")?.textContent ?? "", row.querySelector("dd")?.textContent ?? ""]))');
+      wasmEvaluation = benchmarkReport;
+    } catch (error) {
+      benchmarkReport.error = String(error);
+      await writeFile(join(output, 'wasm-relevance.json'), JSON.stringify(benchmarkReport, null, 2) + '\n');
+      throw error;
+    }
+    await writeFile(join(output, 'wasm-relevance.json'), JSON.stringify(benchmarkReport, null, 2) + '\n');
+    console.log('Real WASM evaluation summary: ' + JSON.stringify({ summary: benchmarkReport.summary, performancePanel: benchmarkReport.performancePanel }, null, 2));
+  }
+  const report = { browser, method: 'headless Chromium; WebGPU disabled; no local model enabled; network offline after initial load', results, ...(wasmEvaluation ? { wasmEvaluation: { sampleCount: wasmEvaluation.sampledCases, summary: wasmEvaluation.summary } } : {}) };
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
   ws.close();
