@@ -26,7 +26,7 @@ describe('separate FAQ cache measurements', () => {
       wasmFaqCacheMissMs: 200,
       wasmFaqCacheHitTimes: [10, 20],
     }));
-    expect(screen.getByText('FAQ embedding pass (cache miss)').parentElement?.textContent).toContain('200.0 ms');
+    expect(screen.getByText('FAQ cache-miss query (latest)').parentElement?.textContent).toContain('200.0 ms');
     expect(screen.getByText('Cached FAQ query samples').parentElement?.textContent).toContain('2');
     expect(screen.getByText('Cached FAQ query p50 / p95').parentElement?.textContent).toContain('10.0 / 20.0 ms');
     expect(screen.getByText('WASM search p50 / p95').parentElement?.textContent).toContain('20.0 / 200.0 ms');
