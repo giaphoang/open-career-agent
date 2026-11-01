@@ -120,6 +120,34 @@ try {
     assert(layout.developerHeight > 0 && layout.developerTop < layout.scrollHeight, 'Developer footer must actually be visible in page layout.');
     assert(layout.width <= v.width + 2 && layout.scrollWidth <= layout.width + 2, v.name + ' has horizontal overflow or incorrect viewport scale.');
     if (v.mobile) assert(layout.chatFirst, 'Mobile should show recruiter chat before sidebar.');
+    // Measure real Chromium computed styles and visible control geometry.
+    // These checks prevent regressions to iOS-triggering 12px input text and
+    // undersized tap targets without claiming an actual iOS device audit.
+    let mobileUsability = null;
+    if (v.mobile) {
+      mobileUsability = await evaluate(`(() => {
+        const selectors = [
+          '.composer button', '.chat-tools button', '.suggestions button',
+          '.skill-buttons button', '.project-content .tags button',
+          '.hero-actions button', '.hero-example', '.top-contact'
+        ];
+        return {
+          inputFontPx: parseFloat(getComputedStyle(document.querySelector('.composer input')).fontSize),
+          answerFontPx: parseFloat(getComputedStyle(document.querySelector('.bubble')).fontSize),
+          controls: selectors.map(selector => {
+            const el = document.querySelector(selector);
+            const box = el?.getBoundingClientRect();
+            return { selector, width: box?.width ?? 0, height: box?.height ?? 0 };
+          })
+        };
+      })()`);
+      assert(mobileUsability.inputFontPx >= 16, 'Mobile question input must render at least 16px to avoid Safari focus zoom.');
+      assert(mobileUsability.answerFontPx >= 15, 'Mobile recruiter answer text is too small.');
+      for (const target of mobileUsability.controls) {
+        assert(target.width >= 44 && target.height >= 44,
+          target.selector + ' needs a 44x44px mobile touch target, got ' + target.width + 'x' + target.height);
+      }
+    }
     const ax = await call('Accessibility.getFullAXTree');
     const names = ax.nodes.filter(n => n.role?.value === 'button').map(n => n.name?.value);
     assert(names.includes('Ask about experience') && names.includes('Send question'), 'Recruiter controls need accessible button names: ' + JSON.stringify(names));
@@ -159,7 +187,7 @@ try {
     const screenshotHeight = await evaluate('document.documentElement.scrollHeight');
     const screenshot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width: v.width, height: screenshotHeight, scale: 1 } });
     await writeFile(join(output, v.name + '.png'), Buffer.from(screenshot.data, 'base64'));
-    results.push({ viewport: v.name, ...layout, ...keyboard, keyboardSubmitted: true, keyboardDeveloperDisclosure: true, screenshotHeight, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
+    results.push({ viewport: v.name, ...layout, ...(mobileUsability ? { mobileUsability } : {}), ...keyboard, keyboardSubmitted: true, keyboardDeveloperDisclosure: true, screenshotHeight, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
   }
   const report = { browser, method: 'headless Chromium; WebGPU disabled; no local model enabled; network offline after initial load', results };
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2));
