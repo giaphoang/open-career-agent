@@ -38,7 +38,7 @@ The preview command serves the production build locally. These commands do not t
 
 ### Browser smoke evidence
 
-CI runs `node scripts/browser-smoke.mjs` after the production build using installed Chromium/Chrome (Node.js 22+). It asserts recruiter-first content order, collapsed developer tools, accessible labels, no horizontal overflow at 1280px desktop and 390px mobile, and a cited answer while the network is offline **after initial page load**. It disables WebGPU and never enables optional on-device models. The workflow retains desktop/mobile screenshots and `report.json` as a downloadable Actions artifact, including on failed smoke tests.
+CI runs `node scripts/browser-smoke.mjs` after the production build using installed Chromium/Chrome (Node.js 22+). It asserts recruiter-first content order, collapsed developer tools, accessible labels, no horizontal overflow at 1280px desktop and 390px mobile, and a cited answer while the network is offline **after initial page load**. It also exercises real keyboard Enter events for the recruiter CTA, message submission, and developer disclosure; checks visible composer focus and the reduced-motion scroll preference. These are focused keyboard checks, not a full screen-reader audit. It disables WebGPU and never enables optional on-device models. The workflow retains desktop/mobile screenshots and `report.json` as a downloadable Actions artifact, including on failed smoke tests.
 
 This is **not** a full WCAG audit, cold-offline validation, WebGPU benchmark, WASM inference test, or proof that evidence links independently substantiate every claim. Run a manual accessibility review and real-device WASM measurements before declaring production readiness.
 

@@ -67,6 +67,14 @@ try {
   const target = await until(async () => (await (await fetch('http://127.0.0.1:' + port + '/json/list')).json()).find(t => t.type === 'page'), 'Chrome tab missing.');
   const { ws, call } = await connect(target.webSocketDebuggerUrl);
   await call('Page.enable'); await call('Runtime.enable'); await call('Network.enable'); await call('Accessibility.enable');
+  async function pressEnter() {
+    const key = { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 };
+    // CDP keyDown alone does not produce the Enter character/default action
+    // in headless Chromium: dispatch the char event before keyUp.
+    await call('Input.dispatchKeyEvent', { ...key, type: 'keyDown' });
+    await call('Input.dispatchKeyEvent', { ...key, type: 'char', text: '\r' });
+    await call('Input.dispatchKeyEvent', { ...key, type: 'keyUp' });
+  }
   async function evaluate(expression) {
     const result = await call('Runtime.evaluate', { expression, returnByValue: true });
     if (result.exceptionDetails) throw Error(result.exceptionDetails.text);
@@ -76,9 +84,20 @@ try {
   for (const v of [{ name: 'desktop', width: 1280, height: 800, mobile: false }, { name: 'mobile', width: 390, height: 844, mobile: true }]) {
     await call('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
     await call('Emulation.setDeviceMetricsOverride', { width: v.width, height: v.height, deviceScaleFactor: 1, mobile: v.mobile });
+    // Verify both CSS and JS motion preferences: desktop normal, mobile reduced.
+    await call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: v.mobile ? 'reduce' : 'no-preference' }] });
     const navigation = await call('Page.navigate', { url: 'http://127.0.0.1:' + server.address().port + '/' });
     if (navigation.errorText) throw Error(navigation.errorText);
     await until(() => evaluate('document.readyState === "complete" && !!document.querySelector(".hero-example") && !!document.querySelector("#question")'), 'Page failed to render on ' + v.name);
+    await evaluate(`(() => {
+      const original = Element.prototype.scrollIntoView;
+      window.__careerScrollOptions = null;
+      Element.prototype.scrollIntoView = function(options) {
+        window.__careerScrollOptions = options;
+        return original.call(this, options);
+      };
+      return true;
+    })()`);
     const layout = await evaluate(`(() => {
       const dev = document.querySelector('#for-developers');
       const exp = document.querySelector('#experience');
@@ -107,11 +126,40 @@ try {
     await call('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
     await evaluate('document.querySelector(".hero-example").click(); true');
     await until(() => evaluate('document.querySelectorAll(".exchange .sources a").length > 0'), 'Offline evidence-backed answer failed on ' + v.name);
+    // Actual keyboard event path, not a JS .click(): activate the main recruiter
+    // CTA, type a question, submit with Enter, and toggle developer details.
+    await evaluate('document.querySelector(".hero-actions button").focus(); true');
+    await pressEnter();
+    await until(() => evaluate('document.activeElement?.id === "question"'), 'Keyboard recruiter CTA did not focus the composer on ' + v.name);
+    const keyboard = await evaluate(`(() => {
+      const composer = document.querySelector('.composer');
+      return {
+        reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+        scrollBehavior: window.__careerScrollOptions?.behavior,
+        composerFocusOutline: getComputedStyle(composer).outlineWidth,
+        conversationRole: document.querySelector('.chat-body')?.getAttribute('role'),
+        conversationLabel: document.querySelector('.chat-body')?.getAttribute('aria-label')
+      };
+    })()`);
+    assert.equal(keyboard.reducedMotion, v.mobile, 'Browser motion preference mismatch.');
+    assert.equal(keyboard.scrollBehavior, v.mobile ? 'auto' : 'smooth', 'Recruiter CTA must respect reduced motion.');
+    assert.equal(keyboard.composerFocusOutline, '3px', 'Keyboard composer focus needs a visible outline.');
+    assert.equal(keyboard.conversationRole, 'log', 'Screen readers need a conversation log landmark.');
+    assert(keyboard.conversationLabel, 'Conversation log needs an accessible name.');
+    await call('Input.insertText', { text: 'Have you designed scalable Java systems?' });
+    await until(() => evaluate('document.querySelector("#question").value.includes("Have you designed scalable Java systems?")'), 'Keyboard text entry failed on ' + v.name);
+    await pressEnter();
+    await until(() => evaluate('document.querySelectorAll(".exchange").length >= 2 && document.querySelectorAll(".exchange .sources a").length >= 2'), 'Keyboard question did not return cited evidence offline on ' + v.name);
+    await evaluate('document.querySelector(".developer-tools summary").focus(); true');
+    await pressEnter();
+    assert(await evaluate('document.querySelector(".developer-tools").open'), 'Keyboard must open developer details on ' + v.name);
+    await pressEnter();
+    assert(!(await evaluate('document.querySelector(".developer-tools").open')), 'Keyboard must close developer details on ' + v.name);
     // Chat content changes document height; measure AFTER the answer so full-page proof includes the footer.
     const screenshotHeight = await evaluate('document.documentElement.scrollHeight');
     const screenshot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width: v.width, height: screenshotHeight, scale: 1 } });
     await writeFile(join(output, v.name + '.png'), Buffer.from(screenshot.data, 'base64'));
-    results.push({ viewport: v.name, ...layout, screenshotHeight, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
+    results.push({ viewport: v.name, ...layout, ...keyboard, keyboardSubmitted: true, keyboardDeveloperDisclosure: true, screenshotHeight, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
   }
   const report = { browser, method: 'headless Chromium; WebGPU disabled; no local model enabled; network offline after initial load', results };
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2));
