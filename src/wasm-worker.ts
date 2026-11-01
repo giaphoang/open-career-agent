@@ -74,6 +74,8 @@ scope.addEventListener('message', event => {
       cachedDimensions = dimensions;
       cachedKey = key;
     }
+    // The cache-miss branch must initialize vectors before cosine ranking.
+    if (!vectors) return null;
     // Only one short recruiter question requires inference on repeat turns.
     const questionEmbedding = await currentExtractor([question], { pooling: 'mean', normalize: true });
     if (questionEmbedding.dims.length !== 2 || questionEmbedding.dims[0] !== 1 ||
