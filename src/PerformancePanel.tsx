@@ -13,9 +13,11 @@ interface Props {
   decisionTimes: readonly number[];
   wasmStartupMs?: number | null;
   wasmSearchTimes?: readonly number[];
+  wasmFaqCacheMissMs?: number | null;
+  wasmFaqCacheHitTimes?: readonly number[];
 }
 
-export function PerformancePanel({ decisionTimes, wasmStartupMs = null, wasmSearchTimes = [] }: Props) {
+export function PerformancePanel({ decisionTimes, wasmStartupMs = null, wasmSearchTimes = [], wasmFaqCacheMissMs = null, wasmFaqCacheHitTimes = [] }: Props) {
   const [lcp, setLcp] = useState<number | null>(null);
   useEffect(() => {
     if (typeof PerformanceObserver === 'undefined') return;
@@ -30,6 +32,8 @@ export function PerformancePanel({ decisionTimes, wasmStartupMs = null, wasmSear
   const rulesP95 = percentile95(decisionTimes);
   const wasmP50 = percentile50(wasmSearchTimes);
   const wasmP95 = percentile95(wasmSearchTimes);
+  const cachedP50 = percentile50(wasmFaqCacheHitTimes);
+  const cachedP95 = percentile95(wasmFaqCacheHitTimes);
   return <details className="performance-panel">
     <summary>Performance in this session <span>ON THIS DEVICE &nbsp; +</span></summary>
     <div className="performance-content">
@@ -40,9 +44,12 @@ export function PerformancePanel({ decisionTimes, wasmStartupMs = null, wasmSear
         <div><dt>WASM model startup (worker + model)</dt><dd>{wasmStartupMs === null ? 'Enable WASM search first' : `${Math.round(wasmStartupMs)} ms`}</dd></div>
         <div><dt>WASM search samples (last 200)</dt><dd>{wasmSearchTimes.length}</dd></div>
         <div><dt>WASM search p50 / p95</dt><dd>{wasmP50 === null || wasmP95 === null ? 'Ask an unanswered question with WASM enabled' : `${wasmP50.toFixed(1)} / ${wasmP95.toFixed(1)} ms`}</dd></div>
+        <div><dt>FAQ embedding pass (cache miss)</dt><dd>{wasmFaqCacheMissMs === null ? 'Not measured yet' : `${wasmFaqCacheMissMs.toFixed(1)} ms`}</dd></div>
+        <div><dt>Cached FAQ query samples</dt><dd>{wasmFaqCacheHitTimes.length}</dd></div>
+        <div><dt>Cached FAQ query p50 / p95</dt><dd>{cachedP50 === null || cachedP95 === null ? 'Ask another unanswered question' : `${cachedP50.toFixed(1)} / ${cachedP95.toFixed(1)} ms`}</dd></div>
         <div><dt>Observed LCP candidate</dt><dd>{lcp === null ? 'Not available' : `${Math.round(lcp)} ms`}</dd></div>
       </dl>
-      <p>Engine-only timing excludes rendering and inference. WASM timing measures worker startup until ready and wall-clock search request to worker result, including messaging and inference; completed worker responses may include no match or internal worker errors. UI rendering, cancellations, and timeouts are excluded. Browser/network caches affect startup. LCP is the latest browser-reported candidate, not a p75 across visits. Browser support varies.</p>
+      <p>Engine-only timing excludes rendering and inference. WASM timing measures worker startup until ready and wall-clock search request to worker result, including messaging and inference; completed worker responses may include no match or internal worker errors. UI rendering, cancellations, and timeouts are excluded. FAQ cache-miss time includes embedding the authored questions and the recruiter question; a cache-hit query reuses the FAQ vectors but still embeds the new question. These are worker-reported cache states, not proof of a speedup; no-match and worker-error replies can be counted. Browser/network caches affect startup. LCP is the latest browser-reported candidate, not a p75 across visits. Browser support varies.</p>
     </div>
   </details>;
 }
