@@ -21,7 +21,7 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
     let closed = false;
     let ready = false;
     let sequence = 0;
-    let pending: { id: number; count: number; startedAt: number; resolve: (index: number | null) => void; cleanup: () => void } | undefined;
+    let pending: { id: number; count: number; startedAt: number; cancelled: boolean; resolve: (index: number | null) => void; cleanup: () => void } | undefined;
     const startupTimer = setTimeout(() => failStart('Model loading timed out.'), 180_000);
     const abortStartup = () => failStart('Canceled.');
     function shutdown() {
@@ -60,14 +60,21 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
             if (texts.some(text => !text.trim())) return Promise.resolve(null);
             const id = ++sequence;
             return new Promise<number | null>(done => {
-              // Inference cannot be safely interrupted in the worker, so cancellation
-              // and timeout terminate it; a new opt-in is required to restart.
-              const abort = () => shutdown();
-              const timer = setTimeout(abort, 45_000);
+              // Cancellation should not unload a large model on every fast follow-up.
+              // The worker cannot interrupt inference, so reserve its in-flight slot
+              // until that result arrives; subsequent queries fail safe (null) meanwhile.
+              const abort = () => {
+                if (pending?.id === id && !pending.cancelled) {
+                  pending.cancelled = true;
+                  signal.removeEventListener('abort', abort);
+                  done(null);
+                }
+              };
+              const timer = setTimeout(shutdown, 45_000);
               const cleanup = () => { clearTimeout(timer); signal.removeEventListener('abort', abort); };
-              pending = { id, count: candidates.length, startedAt: performance.now(), resolve: done, cleanup };
+              pending = { id, count: candidates.length, startedAt: performance.now(), cancelled: false, resolve: done, cleanup };
               signal.addEventListener('abort', abort, { once: true });
-              if (signal.aborted) { abort(); return; }
+              if (signal.aborted) { pending = undefined; cleanup(); done(null); return; }
               try { worker.postMessage({ type: 'search', id, question, candidates: texts }); }
               catch { shutdown(); }
             });
@@ -78,9 +85,11 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
       }
       if (value.type === 'result' && pending && 'id' in value && value.id === pending.id && 'index' in value) {
         const request = pending; pending = undefined; request.cleanup();
-        const index = value.index;
-        reportTiming('query', request.startedAt);
-        request.resolve(typeof index === 'number' && Number.isSafeInteger(index) && index >= 0 && index < request.count ? index : null);
+        if (!request.cancelled) {
+          const index = value.index;
+          reportTiming('query', request.startedAt);
+          request.resolve(typeof index === 'number' && Number.isSafeInteger(index) && index >= 0 && index < request.count ? index : null);
+        }
       }
     };
     try { worker.postMessage({ type: 'init' }); }
