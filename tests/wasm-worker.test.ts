@@ -5,6 +5,7 @@ vi.mock('@huggingface/transformers', () => ({
   env: { useBrowserCache: true, useWasmCache: true, allowLocalModels: true, backends: { onnx: { wasm: { numThreads: 4 } } } },
   pipeline: vi.fn(async () => async (items: string[]) => {
     mock.calls.push([...items]);
+    if (items.includes('SIMULATE_FAILURE')) throw new Error('simulated embedding failure');
     const data = items.flatMap(text => /java/i.test(text) ? [1, 0] : /react/i.test(text) ? [0, 1] : [-1, 0]);
     return { dims: [items.length, 2], data: Float32Array.from(data) };
   }),
@@ -31,16 +32,23 @@ describe('WASM worker inference reuse', () => {
 
     const candidates = ['Java backend skills', 'React frontend skills'];
     emit({ type: 'search', id: 1, question: 'Java expertise?', candidates });
-    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 1, index: 0, faqCacheHit: false }));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 1, index: 0, faqCacheHit: false, ok: true }));
     expect(mock.calls).toEqual([candidates, ['Java expertise?']]);
 
     emit({ type: 'search', id: 2, question: 'React expertise?', candidates });
-    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 2, index: 1, faqCacheHit: true }));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 2, index: 1, faqCacheHit: true, ok: true }));
     expect(mock.calls).toEqual([candidates, ['Java expertise?'], ['React expertise?']]);
 
     const updated = ['Java API experience', 'React frontend skills'];
     emit({ type: 'search', id: 3, question: 'Java API?', candidates: updated });
-    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 3, index: 0, faqCacheHit: false }));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 3, index: 0, faqCacheHit: false, ok: true }));
     expect(mock.calls).toEqual([candidates, ['Java expertise?'], ['React expertise?'], updated, ['Java API?']]);
+
+    // Model exceptions must be distinguishable from a legitimate low-similarity
+    // abstention, while preserving the existing cached FAQ vectors.
+    emit({ type: 'search', id: 4, question: 'SIMULATE_FAILURE', candidates: updated });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 4, index: null, faqCacheHit: true, ok: false }));
+    emit({ type: 'search', id: 5, question: 'React follow-up?', candidates: updated });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 5, index: 1, faqCacheHit: true, ok: true }));
   });
 });
