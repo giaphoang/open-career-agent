@@ -58,7 +58,12 @@ function App() {
     animate();
     return id;
   }
-  function focusChat() { document.getElementById('conversation')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); inputRef.current?.focus({ preventScroll: true }); }
+  function focusChat() {
+    // Respect motion-sensitive visitors even when scrolling is triggered by JS.
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    document.getElementById('conversation')?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+    inputRef.current?.focus({ preventScroll: true });
+  }
   function beginInterview() {
     pending.current?.abort(); setModelSearching(false);
     const turn = startInterview(); setInterview(turn.state); add(infoAnswer(turn.text, turn.followUp), undefined, 'ROLE DISCOVERY'); focusChat();
@@ -161,7 +166,7 @@ function App() {
       </section>
       <section className="workspace shell" id="conversation" aria-label="Career conversation">
         <div className="chat-card"><div className="chat-header"><div><div className="chat-title"><span className="chat-symbol">✳</span> Interview the experience <span className="live-label"><span/> READY TO CHAT</span></div><p>Ask about projects, responsibilities, decisions, or what this candidate could bring to your team.</p></div><button className="clear-chat" type="button" onClick={clearChat} disabled={!messages.length}>Clear chat</button></div>
-          <div className="chat-body" aria-live="polite" aria-relevant="additions text"><div className="message agent-message"><Avatar/><div><div className="message-name">{profile.candidate.name}’s career agent <span>· &nbsp; just now</span></div><div className="bubble">Welcome. I can walk you through {profile.candidate.name}’s public projects, responsibilities, and engineering decisions. You can also tell me about the position you are hiring for.<br/><br/>What would you like to explore?</div></div></div>
+          <div className="chat-body" role="log" aria-label="Career interview conversation" aria-live="polite" aria-relevant="additions text"><div className="message agent-message"><Avatar/><div><div className="message-name">{profile.candidate.name}’s career agent <span>· &nbsp; just now</span></div><div className="bubble">Welcome. I can walk you through {profile.candidate.name}’s public projects, responsibilities, and engineering decisions. You can also tell me about the position you are hiring for.<br/><br/>What would you like to explore?</div></div></div>
           {messages.map((message, index) => <div key={message.id} className="exchange">{message.question && <div className="user-bubble">{message.question}</div>}<div className="message agent-message"><Avatar speaking={speaking && index === messages.length - 1}/><div><div className="message-name">Career agent <span>· &nbsp; {message.label ?? 'based on the public profile'}</span></div><div className="bubble">{message.answer.text}{message.answer.followUp && <p className="follow-up">{message.answer.followUp}</p>}<EvidenceLinks evidence={message.answer.evidence}/></div></div></div></div>)}
           {messages.length === 0 && <div className="suggestions"><span>NOT SURE WHERE TO START?</span><div>{prompts.map(prompt => <button type="button" key={prompt} onClick={() => ask(prompt)}>{prompt} <span>↗</span></button>)}</div></div>}{modelSearching && <p className="model-searching" role="status">Looking for related public information on this device…</p>}</div>
           <div className="chat-tools"><button type="button" onClick={beginInterview}>✳ &nbsp; Discuss the role</button><button type="button" onClick={() => setShowSkills(value => !value)} aria-expanded={showSkills} aria-controls="skill-picker">⌕ &nbsp; Find evidence</button>{interview && <button type="button" onClick={() => { setInterview(null); add(infoAnswer('Role questions stopped. Ask anything about the public profile.')); }}>Stop role questions</button>}</div>{showSkills && <div className="skill-picker" id="skill-picker"><span>Choose a skill to see related evidence</span><div>{profile.skills.map(skill => <button key={skill.name} type="button" onClick={() => findSkill(skill.name)}>{skill.name} ↗</button>)}</div></div>}
