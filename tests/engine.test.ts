@@ -30,6 +30,15 @@ describe('career answers', () => {
     expect(result.evidence.map((source) => source.id)).toEqual(['orders']);
   });
 
+  it('refuses age questions phrased without the word age and never returns sources', () => {
+    for (const question of ['How old are you?', 'How old is the candidate?', 'When were you born?', 'What is your birth year?', 'What is your DOB?']) {
+      expect(answerQuestion(question, profile), question).toMatchObject({ kind: 'private', evidence: [] });
+    }
+    const sensitiveFaq = structuredClone(profileData);
+    sensitiveFaq.faq[0]!.questions = ['How old are you?'];
+    expect(() => validateProfile(sensitiveFaq)).toThrow('FAQ questions cannot ask for private information');
+  });
+
   it('declines unknown and sensitive questions, even when they name a project', () => {
     expect(answerQuestion('Are you a Nobel Prize winner?', profile)).toMatchObject({ kind: 'unknown', evidence: [] });
     expect(answerQuestion('What is your salary on the Java project?', profile)).toMatchObject({ kind: 'private', evidence: [] });
