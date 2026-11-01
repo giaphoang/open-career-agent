@@ -85,7 +85,9 @@ try {
       const chat = document.querySelector('.chat-card');
       const profile = document.querySelector('.profile-card');
       return {
-        width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+        width: innerWidth, scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight,
+        developerTop: dev ? Math.round(dev.getBoundingClientRect().top + scrollY) : -1,
+        developerHeight: dev?.getBoundingClientRect().height ?? 0,
         heading: document.querySelector('h1')?.textContent ?? '',
         developerLast: !!dev && !!exp && !!(exp.compareDocumentPosition(dev) & Node.DOCUMENT_POSITION_FOLLOWING),
         developerCollapsed: !document.querySelector('.developer-tools')?.open,
@@ -96,16 +98,16 @@ try {
     })()`);
     assert.match(layout.heading, /Ask about the work/i);
     assert(layout.developerLast && layout.developerCollapsed && layout.formLabeled && layout.sendLabeled);
+    assert(layout.developerHeight > 0 && layout.developerTop < layout.scrollHeight, 'Developer footer must actually be visible in page layout.');
     assert(layout.width <= v.width + 2 && layout.scrollWidth <= layout.width + 2, v.name + ' has horizontal overflow or incorrect viewport scale.');
     if (v.mobile) assert(layout.chatFirst, 'Mobile should show recruiter chat before sidebar.');
     const ax = await call('Accessibility.getFullAXTree');
     const names = ax.nodes.filter(n => n.role?.value === 'button').map(n => n.name?.value);
-    console.log(v.name + ' accessibility button names: ' + JSON.stringify(names));
-    assert(names.includes('Ask about experience') && names.includes('Send question'), 'Recruiter controls need accessible button names.');
+    assert(names.includes('Ask about experience') && names.includes('Send question'), 'Recruiter controls need accessible button names: ' + JSON.stringify(names));
     await call('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
     await evaluate('document.querySelector(".hero-example").click(); true');
     await until(() => evaluate('document.querySelectorAll(".exchange .sources a").length > 0'), 'Offline evidence-backed answer failed on ' + v.name);
-    const screenshot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
+    const screenshot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width: v.width, height: layout.scrollHeight, scale: 1 } });
     await writeFile(join(output, v.name + '.png'), Buffer.from(screenshot.data, 'base64'));
     results.push({ viewport: v.name, ...layout, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
   }
