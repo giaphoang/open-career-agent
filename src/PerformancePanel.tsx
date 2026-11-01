@@ -44,7 +44,7 @@ export function PerformancePanel({ decisionTimes, wasmStartupMs = null, wasmSear
         <div><dt>WASM model startup (worker + model)</dt><dd>{wasmStartupMs === null ? 'Enable WASM search first' : `${Math.round(wasmStartupMs)} ms`}</dd></div>
         <div><dt>WASM search samples (last 200)</dt><dd>{wasmSearchTimes.length}</dd></div>
         <div><dt>WASM search p50 / p95</dt><dd>{wasmP50 === null || wasmP95 === null ? 'Ask an unanswered question with WASM enabled' : `${wasmP50.toFixed(1)} / ${wasmP95.toFixed(1)} ms`}</dd></div>
-        <div><dt>FAQ embedding pass (cache miss)</dt><dd>{wasmFaqCacheMissMs === null ? 'Not measured yet' : `${wasmFaqCacheMissMs.toFixed(1)} ms`}</dd></div>
+        <div><dt>FAQ cache-miss query (latest)</dt><dd>{wasmFaqCacheMissMs === null ? 'Not measured yet' : `${wasmFaqCacheMissMs.toFixed(1)} ms`}</dd></div>
         <div><dt>Cached FAQ query samples</dt><dd>{wasmFaqCacheHitTimes.length}</dd></div>
         <div><dt>Cached FAQ query p50 / p95</dt><dd>{cachedP50 === null || cachedP95 === null ? 'Ask another unanswered question' : `${cachedP50.toFixed(1)} / ${cachedP95.toFixed(1)} ms`}</dd></div>
         <div><dt>Observed LCP candidate</dt><dd>{lcp === null ? 'Not available' : `${Math.round(lcp)} ms`}</dd></div>
