@@ -123,13 +123,18 @@ try {
     // A keyboard-only recruiter can bypass navigation and the long hero to reach chat.
     // Trigger the real Enter key on the focused skip link; .click() alone would
     // miss browser focus and default-action regressions.
+    await call('Page.bringToFront');
+    const tab = { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 };
+    await call('Input.dispatchKeyEvent', { ...tab, type: 'keyDown' });
+    await call('Input.dispatchKeyEvent', { ...tab, type: 'keyUp' });
     const skipLink = await evaluate(`(() => {
       const skip = document.querySelector('.skip-link');
       if (!skip) return null;
-      skip.focus();
       const box = skip.getBoundingClientRect();
       return {
         first: document.querySelector('#root')?.firstElementChild === skip,
+        focused: document.activeElement === skip,
+        focusRule: skip.matches(':focus'),
         label: skip.textContent?.trim(),
         target: skip.getAttribute('href'),
         top: box.top,
@@ -137,7 +142,7 @@ try {
         height: box.height
       };
     })()`);
-    assert(skipLink?.first && skipLink.label === 'Skip to interview chat' && skipLink.target === '#conversation',
+    assert(skipLink?.first && skipLink.focused && skipLink.label === 'Skip to interview chat' && skipLink.target === '#conversation',
       'Keyboard skip link must be the first element and point to recruiter chat.');
     assert(skipLink.top >= 0 && skipLink.width >= 44 && skipLink.height >= 44,
       'Focused skip link must be visible and usable in ' + v.name + ': ' + JSON.stringify(skipLink));
