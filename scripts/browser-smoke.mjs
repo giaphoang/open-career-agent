@@ -17,9 +17,13 @@ const server = createServer(async (req, res) => {
     const name = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
     const file = resolve(dist, '.' + name, name.endsWith('/') ? 'index.html' : '');
     if (file !== dist && !file.startsWith(dist + sep)) { res.writeHead(403).end(); return; }
+    const contents = await readFile(file);
     res.writeHead(200, { 'Content-Type': mime[extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-store' });
-    res.end(await readFile(file));
-  } catch { res.writeHead(404).end(); }
+    res.end(contents);
+  } catch {
+    if (!res.headersSent) res.writeHead(404);
+    res.end();
+  }
 });
 const pause = ms => new Promise(r => setTimeout(r, ms));
 async function until(fn, message) {
