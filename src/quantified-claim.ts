@@ -98,6 +98,37 @@ function countedUnits(text: string): Map<string, Set<string>> {
   return units;
 }
 
+// A matching number alone cannot support an asserted range or approximation:
+// "over 90" and "90" are different claims. Require the same authored
+// comparison class and quantity, otherwise withhold the optional suggestion.
+// This deliberately abstains on some mathematically entailed variants too.
+const COMPARISON_KINDS: Readonly<Record<string, string>> = {
+  'more than': 'gt', 'greater than': 'gt', over: 'gt', above: 'gt',
+  'at least': 'gte', 'no less than': 'gte',
+  'less than': 'lt', 'fewer than': 'lt', under: 'lt', below: 'lt',
+  'at most': 'lte', 'no more than': 'lte', 'up to': 'lte',
+  approximately: 'approx', roughly: 'approx', around: 'approx', about: 'approx',
+  nearly: 'near-lt', almost: 'near-lt',
+};
+const COMPARED_QUANTITY = new RegExp(
+  `\\b(${Object.keys(COMPARISON_KINDS).sort((a, b) => b.length - a.length).join('|')})[\\s-]+(${COUNTED_NUMBER}(?:\\s*(?:%|percent))?)(?![\\p{L}\\p{N}])`, 'giu',
+);
+function comparedQuantities(text: string): Map<string, Set<string>> {
+  const result = new Map<string, Set<string>>();
+  for (const match of text.matchAll(COMPARED_QUANTITY)) {
+    const kind = COMPARISON_KINDS[match[1]!.toLowerCase()];
+    if (!kind) continue;
+    const counts = quantities(match[2]!);
+    // The isolated word "one" is normally exempt, but not in "over one".
+    if (match[2]!.toLowerCase() === 'one') counts.add(quantityKey(1, 'count'));
+    for (const count of counts) {
+      const kinds = result.get(count) ?? new Set<string>();
+      kinds.add(kind);
+      result.set(count, kinds);
+    }
+  }
+  return result;
+}
 /** True when a numeric premise is absent from the model-selected authored FAQ. */
 export function hasUnsupportedQuantifiedPremise(question: string, faq: QuantifiedFaq): boolean {
   const asserted = quantities(question);
@@ -105,6 +136,9 @@ export function hasUnsupportedQuantifiedPremise(question: string, faq: Quantifie
   const authoredText = [...faq.questions, faq.answer].join(' ');
   const authored = quantities(authoredText);
   if ([...asserted].some(value => !authored.has(value))) return true;
+  const authoredComparisons = comparedQuantities(authoredText);
+  if ([...comparedQuantities(question)].some(([count, kinds]) =>
+    [...kinds].some(kind => !authoredComparisons.get(count)?.has(kind)))) return true;
   const authoredUnits = countedUnits(authoredText);
   return [...countedUnits(question)].some(([count, units]) =>
     [...units].some(unit => !authoredUnits.get(count)?.has(unit)));
