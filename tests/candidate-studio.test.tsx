@@ -31,8 +31,9 @@ it('rejects missing fields and unsafe or credential-bearing links', () => {
   expect(createStarterProfile({ ...draft, answer: '  ' }).kind).toBe('invalid');
   expect(createStarterProfile({ ...draft, sourceUrl: 'javascript:alert(1)' }).kind).toBe('invalid');
   expect(createStarterProfile({ ...draft, sourceUrl: 'https://docs.example.org/case-study' })).toMatchObject({ kind: 'invalid', message: expect.stringContaining('placeholders') });
-  for (const sourceUrl of ['https://example.com./work', 'https://docs.example.test/work', 'https://service.invalid/work', 'https://localhost/work']) {
-    expect(createStarterProfile({ ...draft, sourceUrl }), sourceUrl).toMatchObject({ kind: 'invalid', message: expect.stringContaining('placeholders') });
+  for (const sourceUrl of ['https://example.com./work', 'https://docs.example.test/work', 'https://service.invalid/work', 'https://localhost/work',
+    'https://127.0.0.1/work', 'https://192.168.1.10/work', 'https://[::1]/work', 'https://2130706433/work']) {
+    expect(createStarterProfile({ ...draft, sourceUrl }), sourceUrl).toMatchObject({ kind: 'invalid', message: expect.stringContaining('not public evidence') });
   }
   expect(createStarterProfile({ ...draft, sourceUrl: 'https://user:password@example.org/private' }).kind).toBe('invalid');
   expect(createStarterProfile({ ...draft, stack: ', , ' }).kind).toBe('invalid');
