@@ -22,14 +22,33 @@ vi.mock('../src/browser-llm', () => ({
 
 // Allow shared CI runners time to complete this integrated functional journey.
 it('supports evidence chat, guided role discovery, skill lookup, and clearing during a delayed model result', async () => {
+  native.availability.mockResolvedValueOnce('unsupported');
   native.enable.mockResolvedValue({ reply: native.reply, dispose: native.dispose });
   wasm.create.mockResolvedValue({ select: wasm.select, dispose: wasm.dispose });
   const storageWrite = vi.spyOn(Storage.prototype, 'setItem');
   document.body.innerHTML = '<div id="root"></div>';
   Element.prototype.scrollIntoView = vi.fn();
   await act(async () => { await import('../src/main'); });
-  // Recruiters see the interview first; cloning and model diagnostics come last.
+  // Recruiters see the interview and native controls before developer diagnostics.
   expect(document.querySelector('.demo-banner')?.textContent).toMatch(/fictional candidate.*not verified evidence/i);
+  const conversation = screen.getByRole('region', { name: 'Career conversation' });
+  const nativeControls = within(conversation).getByRole('region', { name: 'Chrome LLM API controls' });
+  expect(within(nativeControls).getByText('Chrome LLM API is not supported in this browser')).toBeTruthy();
+  expect((document.querySelector('.developer-tools') as HTMLDetailsElement).open).toBe(false);
+  expect(native.availability).toHaveBeenCalledOnce();
+  expect(native.enable).not.toHaveBeenCalled();
+  native.availability.mockResolvedValueOnce('unavailable');
+  fireEvent.click(within(nativeControls).getByRole('button', { name: 'Check again' }));
+  await within(nativeControls).findByText('Chrome LLM API is unavailable on this device');
+  expect(within(nativeControls).getByRole('button', { name: 'Check again' })).toBeTruthy();
+  native.availability.mockResolvedValueOnce('downloadable');
+  fireEvent(window, new Event('focus'));
+  await within(nativeControls).findByRole('button', { name: 'Download and enable model' });
+  native.availability.mockResolvedValueOnce('available');
+  fireEvent(window, new Event('focus'));
+  await within(nativeControls).findByRole('button', { name: 'Enable on-device model' });
+  expect(screen.getAllByRole('button', { name: 'Enable on-device model', hidden: true })).toHaveLength(1);
+  expect(native.enable).not.toHaveBeenCalled();
   const workspace = document.querySelector('.workspace')!;
   expect(workspace.firstElementChild?.classList.contains('chat-card')).toBe(true);
   const developer = document.getElementById('for-developers')!;
@@ -82,9 +101,6 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   expect(screen.queryByText(/Public profile matches:/)).toBeNull();
   expect(screen.queryByText('Staff backend engineer')).toBeNull();
 
-  fireEvent.click(screen.getByText(/For developers · Clone this template/));
-  expect((document.querySelector('.developer-tools') as HTMLDetailsElement).open).toBe(true);
-  fireEvent.click(screen.getByText(/Optional on-device AI/));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Enable on-device model' }).hasAttribute('disabled')).toBe(false));
   let resolveNative!: (value: { reply: typeof native.reply; dispose: typeof native.dispose }) => void;
   let nativeStartup!: { signal: AbortSignal; onProgress: (fraction: number) => void };
@@ -92,15 +108,27 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
     nativeStartup = options;
     return new Promise(resolve => { resolveNative = resolve; });
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Enable on-device model' }));
+  // A stale capability response must not overwrite an explicit startup in progress.
+  let resolveAvailability!: (status: string) => void;
+  native.availability.mockImplementationOnce(() => new Promise<string>(resolve => { resolveAvailability = resolve; }));
+  fireEvent(window, new Event('focus'));
+  fireEvent.click(within(nativeControls).getByRole('button', { name: 'Enable on-device model' }));
+  await act(async () => { resolveAvailability('unsupported'); });
+  expect(within(nativeControls).getByRole('button', { name: 'Starting model…' }).hasAttribute('disabled')).toBe(true);
+  expect((document.querySelector('.developer-tools') as HTMLDetailsElement).open).toBe(false);
   const modelSummary = document.querySelector('.model-panel summary')!;
   expect(modelSummary.textContent).toMatch(/LOADING/);
-  const download = screen.getByRole('progressbar', { name: 'Chrome LLM API model download' });
+  const download = within(nativeControls).getByRole('progressbar', { name: 'Chrome LLM API model download' });
   expect(download.getAttribute('value')).toBeNull();
   expect(download.getAttribute('max')).toBe('1');
   await act(async () => { nativeStartup.onProgress(0.22); });
   expect(modelSummary.textContent).toMatch(/DOWNLOADING 22%/);
   expect(download.getAttribute('value')).toBe('0.22');
+  expect(within(nativeControls).getByRole('button', { name: 'Downloading model…' }).hasAttribute('disabled')).toBe(true);
+  expect(within(nativeControls).getByRole('button', { name: 'Cancel loading' })).toBeTruthy();
+  const checksDuringStartup = native.availability.mock.calls.length;
+  fireEvent(window, new Event('focus'));
+  expect(native.availability).toHaveBeenCalledTimes(checksDuringStartup);
   // Model downloads must not prevent the instant, evidence-backed interview.
   fireEvent.change(screen.getByLabelText('Ask a question about the portfolio'), { target: { value: firstFaq.questions[0] } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
@@ -110,10 +138,12 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   await act(async () => { nativeStartup.onProgress(1); });
   expect(download.getAttribute('value')).toBe('1');
   expect(modelSummary.textContent).toMatch(/STARTING/);
-  expect(screen.getByText(/Chrome is preparing the model/)).toBeTruthy();
+  expect(within(nativeControls).getByText(/Chrome is preparing the model/)).toBeTruthy();
+  expect(within(nativeControls).getByRole('button', { name: 'Preparing model…' }).hasAttribute('disabled')).toBe(true);
   expect(screen.queryByRole('button', { name: 'Turn off model' })).toBeNull();
   await act(async () => { resolveNative({ reply: native.reply, dispose: native.dispose }); });
-  await screen.findByRole('button', { name: 'Turn off model' });
+  await within(nativeControls).findByRole('button', { name: 'Turn off model' });
+  expect(screen.getAllByRole('button', { name: 'Turn off model', hidden: true })).toHaveLength(1);
   expect(modelSummary.textContent).toMatch(/ON/);
   expect(screen.getByText('Chrome LLM API enabled for conversation using the public profile')).toBeTruthy();
   expect(screen.queryByRole('progressbar', { name: 'Chrome LLM API model download' })).toBeNull();
@@ -218,7 +248,7 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   fireEvent.click(screen.getByRole('button', { name: 'Enable on-device model' }));
   await act(async () => { nativeStartup.onProgress(0.22); });
   expect(modelSummary.textContent).toMatch(/DOWNLOADING 22%/);
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel loading' }));
+  fireEvent.click(within(nativeControls).getByRole('button', { name: 'Cancel loading' }));
   expect(nativeStartup.signal.aborted).toBe(true);
   await waitFor(() => expect(screen.getByRole('button', { name: 'Enable on-device model' }).hasAttribute('disabled')).toBe(false));
   expect(modelSummary.textContent).toMatch(/OFF/);
@@ -228,6 +258,9 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   await act(async () => { resolveNative({ reply: native.reply, dispose: native.dispose }); });
   expect(native.dispose).toHaveBeenCalledTimes(disposedBeforeCancel + 1);
   expect(modelSummary.textContent).toMatch(/OFF/);
+  fireEvent.click(screen.getByText(/For developers · Clone this template/));
+  expect((document.querySelector('.developer-tools') as HTMLDetailsElement).open).toBe(true);
+  fireEvent.click(screen.getByText(/Optional on-device AI/));
   fireEvent.click(screen.getByRole('button', { name: 'Enable WASM search' }));
   await screen.findByRole('button', { name: 'Turn off WASM search' });
   expect(wasm.create).toHaveBeenCalledOnce();
@@ -271,10 +304,11 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   fireEvent.click(screen.getByRole('button', { name: 'Enable on-device model' }));
   await act(async () => { nativeStartup.onProgress(0.22); });
   native.availability.mockResolvedValueOnce('downloading');
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel loading' }));
+  fireEvent.click(within(nativeControls).getByRole('button', { name: 'Cancel loading' }));
   expect(nativeStartup.signal.aborted).toBe(true);
-  await screen.findByText('Chrome is downloading its model');
-  const sharedDownload = screen.getByRole('progressbar', { name: 'Chrome LLM API model download' });
+  await within(nativeControls).findByText('Chrome is downloading its model');
+  expect(within(nativeControls).getByRole('button', { name: 'Continue model setup' })).toBeTruthy();
+  const sharedDownload = within(nativeControls).getByRole('progressbar', { name: 'Chrome LLM API model download' });
   expect(sharedDownload.getAttribute('value')).toBeNull();
   expect(modelSummary.textContent).toMatch(/DOWNLOADING/);
   expect(modelSummary.textContent).not.toMatch(/\d+%/);
