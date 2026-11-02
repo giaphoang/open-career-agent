@@ -71,6 +71,26 @@ describe('numeric premises in optional model FAQ suggestions', () => {
     })).toBe(true);
   });
 
+  it('does not mistake a percentage for an equally numbered headcount', () => {
+    const percentOnly = { questions: ['What was the improvement?'], answer: 'The sample improved throughput by 90%.' };
+    const countOnly = { questions: ['How large was the team?'], answer: 'The sample included 90 engineers.' };
+    expect(hasUnsupportedQuantifiedPremise('Did you lead ninety engineers?', percentOnly)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you manage 90 engineers?', percentOnly)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you achieve ninety percent improvement?', countOnly)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you achieve 90% improvement?', countOnly)).toBe(true);
+    // Matching values within a dimension remain eligible for the authored FAQ.
+    expect(hasUnsupportedQuantifiedPremise('Was the improvement ninety percent?', percentOnly)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you manage ninety engineers?', countOnly)).toBe(false);
+  });
+
+  it('keeps percentages separate even when the FAQ contains other counts', () => {
+    const mixed = { questions: ['What was the result?'], answer: 'The sample involved 24 engineers and achieved 90% availability.' };
+    expect(hasUnsupportedQuantifiedPremise('Did you reach 24% availability?', mixed)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you work with 90 engineers?', mixed)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you reach ninety percent availability?', mixed)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you work with twenty-four engineers?', mixed)).toBe(false);
+  });
+
   it('does not equate different percentages or large numeric claims', () => {
     expect(hasUnsupportedQuantifiedPremise('Was 99% availability achieved?', {
       questions: ['What is the system availability?'],
