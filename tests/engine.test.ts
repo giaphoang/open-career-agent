@@ -58,14 +58,14 @@ describe('public profile validation', () => {
   it('allows reserved example URLs only for the explicitly fictional demo', () => {
     const renamed = structuredClone(profileData);
     renamed.candidate.name = 'Actual Candidate';
-    expect(() => validateProfile(renamed)).toThrow('Placeholder evidence URLs');
+    expect(() => validateProfile(renamed)).toThrow(/Placeholder or IP-address evidence URLs/);
     const withRealUrls = structuredClone(renamed);
     withRealUrls.evidence = withRealUrls.evidence.map((source, index) =>
       ({ ...source, url: `https://github.com/tuannx/open-career-agent/tree/main/docs#source-${index}` }));
     expect(() => validateProfile(withRealUrls)).not.toThrow();
     const subdomain = structuredClone(withRealUrls);
     subdomain.evidence[0]!.url = 'https://docs.example.org/sample';
-    expect(() => validateProfile(subdomain)).toThrow('Placeholder evidence URLs');
+    expect(() => validateProfile(subdomain)).toThrow(/Placeholder or IP-address evidence URLs/);
   });
 
   it('rejects reserved documentation, test and local hosts, including root-dot variants', () => {
