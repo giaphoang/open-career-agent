@@ -88,6 +88,11 @@ describe('public profile validation', () => {
       'https://127.0.0.1/work', 'https://192.168.1.10/work',
       'https://[::1]/work', 'https://2130706433/work',
       'https://8.8.8.8/work',
+      'https://docs.private.local/work', 'https://printer.local./proof',
+      'https://hr.internal/verification', 'https://portal.internal./work',
+      'https://nas.home.arpa/cv', 'https://service.onion/proof',
+      'https://portfolio.alt/case', 'https://intranet/work',
+      'https://intranet./work',
     ];
     for (const url of reserved) {
       expect(isPlaceholderEvidenceUrl(url), url).toBe(true);
@@ -96,7 +101,7 @@ describe('public profile validation', () => {
       candidate.evidence[0]!.url = url;
       expect(() => validateProfile(candidate), url).toThrow(/Placeholder or IP-address evidence URLs/);
     }
-    for (const url of ['https://github.com/tuannx/open-career-agent', 'https://notexample.org/work', 'https://example.com.evil.org/work', 'https://test.dev/work']) {
+    for (const url of ['https://github.com/tuannx/open-career-agent', 'https://notexample.org/work', 'https://example.com.evil.org/work', 'https://test.dev/work', 'https://local-business.com/work', 'https://internal-review.dev/work']) {
       expect(isPlaceholderEvidenceUrl(url), url).toBe(false);
     }
   });

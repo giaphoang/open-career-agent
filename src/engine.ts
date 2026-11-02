@@ -53,7 +53,12 @@ export function isPlaceholderEvidenceUrl(url: string): boolean {
     // Require a public HTTPS hostname for evidence rather than guessing which
     // direct IPs are safe or independently verifiable.
     const ipLiteral = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host) || (host.startsWith('[') && host.endsWith(']'));
-    return ipLiteral || /(^|\.)example\.(?:com|org|net)$/.test(host) ||
+    // A valid HTTPS URL can still point to a name that works only on a local
+    // network or in an alternative naming system. Neither is public evidence.
+    const nonPublicName = !host.includes('.') ||
+      /(^|\.)(?:local|internal|alt|onion)$/.test(host) ||
+      /(^|\.)home\.arpa$/.test(host);
+    return ipLiteral || nonPublicName || /(^|\.)example\.(?:com|org|net)$/.test(host) ||
       /(^|\.)(?:example|test|invalid|localhost)$/.test(host);
   } catch { return false; }
 }
@@ -78,7 +83,7 @@ export function validateProfile(value: unknown): Profile {
     return { id: string(o.id, `${path}.id`), label: string(o.label, `${path}.label`), url: httpsUrl(o.url, `${path}.url`) };
   });
   if (evidence.some(source => isPlaceholderEvidenceUrl(source.url)) && !isFictionalSampleProfile(candidate)) {
-    throw new Error('Placeholder or IP-address evidence URLs are allowed only in the fictional sample profile; supply real public HTTPS domain sources');
+    throw new Error('Placeholder or IP-address evidence URLs (including private-network names) are allowed only in the fictional sample profile; supply real public HTTPS domain sources');
   }
   const skills = array(root.skills, 'skills', (item, path) => {
     const o = object(item, path, ['name', 'category', 'evidenceIds']);
