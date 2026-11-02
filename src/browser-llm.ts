@@ -118,7 +118,7 @@ function parseReply(response: string, question: string, profile: Profile, facts:
   // Fact IDs are *retrieval suggestions*, not a proof that generated prose is entailed.
   // Never render `text`: a fabricated employer/role/achievement can carry valid IDs.
   // Greetings are deterministic too, so a friendly response cannot add invented claims.
-  if (/^(?:hi|hello|hey|good (?:morning|afternoon|evening)|xin chào|chào)(?:[!?.\\s]|$)/i.test(question.trim())) {
+  if (/^(?:hi|hello|hey|good (?:morning|afternoon|evening)|xin chào|chào)(?:[!?.\s]|$)/i.test(question.trim())) {
     return { kind: 'answer', answer: { kind: 'answer',
       text: 'Hello! Ask about the candidate’s projects, skills, or experience. Please check the public sources.',
       evidence: [] }, elapsedMs };
@@ -136,9 +136,9 @@ function parseReply(response: string, question: string, profile: Profile, facts:
   }
   if (!displayed.length) return invalid;
   const sources = new Set(displayed.flatMap(fact => fact.evidenceIds));
-  const excerpt = displayed.map(fact => fact.text).join('\\n\\n');
+  const excerpt = displayed.map(fact => fact.text).join('\n\n');
   return { kind: 'answer', answer: { kind: 'answer',
-    text: 'Related public profile statements (not verification of the question):\\n' + excerpt,
+    text: 'Related public profile statements (not verification of the question):\n' + excerpt,
     evidence: profile.evidence.slice(0, 100).filter(source => sources.has(source.id)) }, elapsedMs };
 }
 
