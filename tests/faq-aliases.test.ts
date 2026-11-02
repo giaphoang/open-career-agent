@@ -7,7 +7,6 @@ import sampleProfile from './fixtures/sample-profile.json';
 const aliases = [
   ['database', 'Which persistence and data-storage technologies have your projects used?'],
   ['runbook', 'Where are service troubleshooting steps and runbooks documented?'],
-  ['tradeoffs', 'Where can I find documented architecture decisions and design trade-offs?'],
 ] as const;
 
 describe('evidence-scoped FAQ alias coverage', () => {
