@@ -338,10 +338,17 @@ try {
     'New offline navigation did not return deterministic cited evidence.');
   const offlineNavigation = {
     viewport: 'mobile', staticShellLoaded: true, conversationReset: true,
-    evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length'),
-    wasmOptIn: await evaluate('document.querySelector(".model-content button")?.textContent?.includes("Enable on-device model") ?? false')
+    serviceWorkerControlled: await evaluate('!!navigator.serviceWorker?.controller'),
+    evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length')
   };
-  assert(offlineNavigation.evidenceLinks > 0, 'Offline reload requires cited evidence.');
+  assert(offlineNavigation.serviceWorkerControlled && offlineNavigation.evidenceLinks > 0,
+    'Offline reload requires active service worker and cited evidence.');
+  const offlineHeight = await evaluate('document.documentElement.scrollHeight');
+  const offlineScreenshot = await call('Page.captureScreenshot', {
+    format: 'png', captureBeyondViewport: true,
+    clip: { x: 0, y: 0, width: 390, height: offlineHeight, scale: 1 }
+  });
+  await writeFile(join(output, 'offline-navigation.png'), Buffer.from(offlineScreenshot.data, 'base64'));
   await call('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
 
   // Opt-in REAL model evaluation. This path downloads the actual quantized WASM
