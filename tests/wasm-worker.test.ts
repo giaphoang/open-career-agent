@@ -33,16 +33,16 @@ describe('WASM worker inference reuse', () => {
 
     const candidates = [['Java backend skills', 'Java design experience'], ['React frontend skills']];
     emit({ type: 'search', id: 1, question: 'Java expertise?', candidates });
-    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 1, index: 0, faqCacheHit: false, ok: true }));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'result', id: 1, index: 0, faqCacheHit: false, ok: true, ranking: expect.objectContaining({ bestIndex: 0, bestCosine: 1 }) })));
     expect(mock.calls).toEqual([candidates.flat(), ['Java expertise?']]);
 
     emit({ type: 'search', id: 2, question: 'React expertise?', candidates });
-    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 2, index: 1, faqCacheHit: true, ok: true }));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'result', id: 2, index: 1, faqCacheHit: true, ok: true, ranking: expect.objectContaining({ bestIndex: 1 }) })));
     expect(mock.calls).toEqual([candidates.flat(), ['Java expertise?'], ['React expertise?']]);
 
     const updated = [['Java API experience'], ['React frontend skills']];
     emit({ type: 'search', id: 3, question: 'Java API?', candidates: updated });
-    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 3, index: 0, faqCacheHit: false, ok: true }));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'result', id: 3, index: 0, faqCacheHit: false, ok: true })));
     expect(mock.calls).toEqual([candidates.flat(), ['Java expertise?'], ['React expertise?'], updated.flat(), ['Java API?']]);
 
     emit({ type: 'search', id: 31, question: 'React?', candidates: ['Not grouped'] });
@@ -54,7 +54,7 @@ describe('WASM worker inference reuse', () => {
     emit({ type: 'search', id: 4, question: 'SIMULATE_FAILURE', candidates: updated });
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 4, index: null, faqCacheHit: true, ok: false }));
     emit({ type: 'search', id: 5, question: 'React follow-up?', candidates: updated });
-    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 5, index: 1, faqCacheHit: true, ok: true }));
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: 'result', id: 5, index: 1, faqCacheHit: true, ok: true })));
     emit({ type: 'search', id: 6, question: 'MALFORMED_TENSOR', candidates: updated });
     await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'result', id: 6, index: null, faqCacheHit: true, ok: false }));
   });
