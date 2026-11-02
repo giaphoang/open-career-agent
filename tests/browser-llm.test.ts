@@ -40,6 +40,19 @@ describe('browser Prompt API', () => {
     model.dispose();
   });
 
+  it('uses a response schema accepted by Chrome without the unsupported uniqueItems keyword', async () => {
+    const clone = { prompt: vi.fn(async (_input: string, options: { responseConstraint: { properties: { factIds: object } } }) => {
+      if ('uniqueItems' in options.responseConstraint.properties.factIds) throw new DOMException('Unsupported JSON schema keyword: uniqueItems', 'NotSupportedError');
+      return greeting;
+    }), destroy: vi.fn() };
+    const session = { clone: vi.fn(async () => clone), destroy: vi.fn() };
+    vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
+    const model = await enableNativeModel({ signal: new AbortController().signal });
+    expect(await model.reply('Hello!', profile, [], new AbortController().signal)).toMatchObject({ kind: 'answer' });
+    expect(clone.destroy).toHaveBeenCalledOnce();
+    model.dispose();
+  });
+
   it.each([
     ['forged fact ID', { kind: 'answer', text: 'Alex worked on Java.', factIds: ['attacker.fact'] }],
     ['missing references', { kind: 'answer', text: 'Alex worked on Java.', factIds: [] }],
