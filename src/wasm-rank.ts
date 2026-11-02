@@ -7,6 +7,8 @@
  * Optional groupIds map each independently embedded FAQ alias to its parent FAQ;
  * the winning margin compares distinct FAQs, not synonyms of the same FAQ.
  */
+export interface WasmRankingDiagnostics { bestIndex: number; bestCosine: number; runnerUpCosine: number | null }
+
 export const MIN_RELATED_COSINE = 0.48;
 export const MIN_WINNING_MARGIN = 0.04;
 
@@ -15,6 +17,7 @@ export function rankRelatedEmbedding(
   candidates: ArrayLike<number>,
   dimensions: number,
   groupIds?: readonly number[],
+  onRanking?: (diagnostics: WasmRankingDiagnostics) => void,
 ): number | null {
   if (!Number.isSafeInteger(dimensions) || dimensions <= 0 || query.length !== dimensions ||
     candidates.length === 0 || candidates.length % dimensions !== 0 ||
@@ -58,6 +61,10 @@ export function rankRelatedEmbedding(
       bestIndex = faqIndex;
     } else if (cosine > secondBest) secondBest = cosine;
   }
+  // Expose non-identifying ranking scores to opt-in local benchmark instrumentation.
+  // This callback must never change selection or make a failed model look healthy.
+  try { onRanking?.({ bestIndex, bestCosine: best, runnerUpCosine: secondBest === -Infinity ? null : secondBest }); }
+  catch { /* metrics are non-critical */ }
   if (best < MIN_RELATED_COSINE || (secondBest !== -Infinity && best - secondBest < MIN_WINNING_MARGIN)) return null;
   return bestIndex;
 }

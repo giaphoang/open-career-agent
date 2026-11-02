@@ -1,6 +1,6 @@
 /** Run untrusted queries only as local embedding inputs, never as model instructions. */
 import { env, pipeline } from '@huggingface/transformers';
-import { rankRelatedEmbedding } from './wasm-rank';
+import { rankRelatedEmbedding, type WasmRankingDiagnostics } from './wasm-rank';
 
 // This module only runs as a dedicated Worker; TypeScript's DOM configuration
 // does not include the separate WebWorker global type.
@@ -94,7 +94,9 @@ scope.addEventListener('message', event => {
       if (!Number.isFinite(number)) throw new Error('Non-finite embedding');
       query[i] = number;
     }
-    return rankRelatedEmbedding(query, vectors, dimensions, groupIds);
-  })().then(index => scope.postMessage({ type: 'result', id, index, faqCacheHit, ok: true }))
+    let ranking: WasmRankingDiagnostics | null = null;
+    const index = rankRelatedEmbedding(query, vectors, dimensions, groupIds, value => { ranking = value; });
+    return { index, ranking };
+  })().then(({ index, ranking }) => scope.postMessage({ type: 'result', id, index, faqCacheHit, ok: true, ...(ranking ? { ranking } : {}) }))
     .catch(() => scope.postMessage({ type: 'result', id, index: null, faqCacheHit, ok: false })).finally(() => { working = false; });
 });

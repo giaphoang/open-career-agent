@@ -249,6 +249,22 @@ try {
       perCategory, totalCorpusCases: Object.values(corpus).filter(Array.isArray).reduce((count, arr) => count + arr.length, 0),
       sampledCases: rows.length, results: [], limitations: 'Chromium desktop CI runner only; not a mobile device or WebGPU test. No remote-model download byte measurement. UI wall time includes rendering; worker timings are separately displayed. No validation that linked evidence substantiates claims.' };
     try {
+      // Instrument worker result metadata ONLY inside the opt-in benchmark tab.
+      // Do not log prompts, vectors, personal data, or send results off-device.
+      await call('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
+        window.__wasmRankSamples = [];
+        const OriginalWorker = window.Worker;
+        window.Worker = class extends OriginalWorker {
+          constructor(...args) {
+            super(...args);
+            this.addEventListener('message', event => {
+              if (event.data?.type === 'result' && event.data?.ok === true && event.data?.ranking) {
+                window.__wasmRankSamples.push({ ...event.data.ranking, selectedIndex: event.data.index });
+              }
+            });
+          }
+        };
+      })()` });
       await call('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
       await call('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
       const navigation = await call('Page.navigate', { url: 'http://127.0.0.1:' + server.address().port + '/' });
@@ -267,6 +283,7 @@ try {
 
       for (const row of rows) {
         const count = await evaluate('document.querySelectorAll(".exchange").length');
+        const previousRankings = await evaluate('window.__wasmRankSamples?.length ?? 0');
         // Mutation observer tracks asynchronous inference separately from the
         // immediate deterministic reply; it does not require any production hooks.
         await evaluate('(() => {window.__wasmProbeObserver?.disconnect(); window.__wasmProbe = {started:false, finished:false}; window.__wasmProbeObserver = new MutationObserver(() => {const visible = !!document.querySelector(".model-searching"); if (visible) window.__wasmProbe.started=true; else if (window.__wasmProbe.started) window.__wasmProbe.finished=true;}); window.__wasmProbeObserver.observe(document.querySelector(".chat-body"), {childList:true, subtree:true}); return true;})()');
@@ -284,15 +301,29 @@ try {
         }
         const finalText = await evaluate('document.querySelector(".exchange:last-child .agent-message .bubble")?.textContent ?? ""');
         const traced = await evaluate('window.__wasmProbe');
-        const matched = sample.faq.find(faq => finalText.includes('Related information from the public profile: ' + faq.answer));
         const evidenceLinks = await evaluate('document.querySelectorAll(".exchange:last-child .sources a").length');
-        if (matched) assert(evidenceLinks > 0 && finalText.includes('I can’t verify the specific claim'), 'A WASM FAQ selection must retain sources and a non-verification warning.');
+        const ranking = traced.started ? await evaluate(`window.__wasmRankSamples.length > ${previousRankings} ? window.__wasmRankSamples.at(-1) : null`) : null;
+        // Never infer the FAQ ID by searching answer text: multiple distinct
+        // authored FAQs may share IDENTICAL answers (e.g. leadership/order-role).
+        // Use the worker's actual selected index to avoid false misclassification.
+        const selectedFaq = ranking && Number.isSafeInteger(ranking.selectedIndex) && ranking.selectedIndex >= 0
+          ? sample.faq[ranking.selectedIndex] : null;
+        if (selectedFaq) assert(evidenceLinks > 0 &&
+          finalText.includes('Related information from the public profile: ' + selectedFaq.answer) &&
+          finalText.includes('I can’t verify the specific claim'), 'A selected WASM FAQ must retain its exact authored answer, sources, and non-verification warning.');
         const result = { category: row.category, question: row.question,
           ...(row.faqId ? { expectedFaqId: row.faqId } : {}),
-          wasmAttempt: traced.started, returnedFaqId: matched?.id ?? null,
+          wasmAttempt: traced.started, returnedFaqId: selectedFaq?.id ?? null,
           privateRefusal: finalText.includes('I can only discuss information the candidate chose to publish'), evidenceLinks,
+          ...(ranking ? { ranking: { ...ranking, bestFaqId: sample.faq[ranking.bestIndex]?.id ?? null } } : {}),
           elapsedUiMs: Number((performance.now() - startedAt).toFixed(1)) };
         benchmarkReport.results.push(result);
+        if (ranking) {
+          const predicted = ranking.bestCosine >= 0.48 &&
+            (ranking.runnerUpCosine === null || ranking.bestCosine - ranking.runnerUpCosine >= 0.04)
+            ? sample.faq[ranking.bestIndex]?.id ?? null : null;
+          assert.equal(predicted, selectedFaq?.id ?? null, 'Worker score trace must reproduce the active ranking result.');
+        }
         if (row.category === 'sensitive') assert(!result.wasmAttempt && result.privateRefusal, 'Sensitive query reached the model or was not refused: ' + row.question);
       }
       benchmarkReport.summary = Object.fromEntries(['paraphrases','unrelated','sensitive','ambiguous'].map(category => {
@@ -307,6 +338,33 @@ try {
       benchmarkReport.correctFaqRate = paraphrase.modelAttempts ? paraphrase.correctSelections / paraphrase.modelAttempts : null;
       benchmarkReport.unrelatedFalseRelatedRate = unrelated.modelAttempts ? unrelated.selectedFaqs / unrelated.modelAttempts : null;
       benchmarkReport.summaryNote = 'Rates use only actual WASM attempts; null means no measurable sample. Absent a model calibration gate, these are observational and may show unsafe relevance.';
+      // Replay acceptance gates against the SAME recorded real-model cosine
+      // scores; no extra inference or speculation. This is exploratory tuning
+      // on a synthetic corpus, not an independent held-out validation.
+      const scored = benchmarkReport.results.filter(row => row.wasmAttempt && row.ranking);
+      benchmarkReport.scoredModelAttempts = scored.length;
+      benchmarkReport.thresholdGrid = [0.48, 0.52, 0.56, 0.60].flatMap(minCosine =>
+        [0.04, 0.06, 0.08, 0.10, 0.12].map(minMargin => {
+          const predicted = scored.map(row => ({
+            ...row,
+            candidate: row.ranking.bestCosine >= minCosine &&
+              (row.ranking.runnerUpCosine === null || row.ranking.bestCosine - row.ranking.runnerUpCosine >= minMargin)
+              ? row.ranking.bestFaqId : null
+          }));
+          const paraphrases = predicted.filter(row => row.category === 'paraphrases');
+          const unrelated = predicted.filter(row => row.category === 'unrelated');
+          const ambiguous = predicted.filter(row => row.category === 'ambiguous');
+          return { minCosine, minMargin, scoredAttempts: predicted.length,
+            paraphraseCorrect: paraphrases.filter(row => row.candidate === row.expectedFaqId).length,
+            paraphraseWrong: paraphrases.filter(row => row.candidate !== null && row.candidate !== row.expectedFaqId).length,
+            paraphraseAbstentions: paraphrases.filter(row => row.candidate === null).length,
+            unrelatedFalseRelated: unrelated.filter(row => row.candidate !== null).length,
+            ambiguousSuggestions: ambiguous.filter(row => row.candidate !== null).length };
+        }));
+      const baseline = benchmarkReport.thresholdGrid.find(row => row.minCosine === 0.48 && row.minMargin === 0.04);
+      assert.equal(baseline.paraphraseCorrect, paraphrase.correctSelections, 'Score-based baseline must reproduce WASM correct-match count.');
+      assert.equal(baseline.unrelatedFalseRelated, unrelated.selectedFaqs, 'Score-based baseline must reproduce unrelated false suggestions.');
+      benchmarkReport.calibrationLimitation = 'Exploratory threshold grid on the same 106 synthetic cases: do not select production thresholds without held-out and real-device checks.';
       benchmarkReport.performancePanel = await evaluate('Object.fromEntries([...document.querySelectorAll(".performance-panel dl div")].map(row => [row.querySelector("dt")?.textContent ?? "", row.querySelector("dd")?.textContent ?? ""]))');
       wasmEvaluation = benchmarkReport;
     } catch (error) {

@@ -34,6 +34,19 @@ describe('conservative WASM embedding retrieval', () => {
     expect(rankRelatedEmbedding([1], new Float32Array(201).fill(1), 1, Array(201).fill(0))).toBeNull();
   });
 
+  it('reports raw top-two FAQ scores without changing the conservative gate', () => {
+    const scores: { bestIndex: number; bestCosine: number; runnerUpCosine: number | null }[] = [];
+    expect(rankRelatedEmbedding([1, 0], [1, 0, 0.99, 0.141], 2, [0, 1], value => scores.push(value))).toBeNull();
+    expect(scores).toHaveLength(1);
+    expect(scores[0]?.bestIndex).toBe(0);
+    expect(scores[0]?.bestCosine).toBeCloseTo(1);
+    expect(scores[0]?.runnerUpCosine).toBeCloseTo(0.99, 2);
+    // A broken optional observer cannot affect user-visible evidence selection.
+    expect(rankRelatedEmbedding([1, 0], [1, 0], 2, undefined, () => { throw Error('observer'); })).toBe(0);
+    expect(rankRelatedEmbedding([0, 0], [1, 0], 2, undefined, value => scores.push(value))).toBeNull();
+    expect(scores).toHaveLength(1);
+  });
+
   it('rejects malformed tensor shapes and non-finite or zero embeddings', () => {
     expect(rankRelatedEmbedding([1], [], 1)).toBeNull();
     expect(rankRelatedEmbedding([1, 0], [1], 2)).toBeNull();
