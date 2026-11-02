@@ -616,7 +616,8 @@ try {
   // Deterministic integration coverage through the actual native adapter. The
   // Prompt API is mocked here; real-device model quality is measured separately.
   const fixtureProfile = JSON.parse(await readFile('src/data/profile.json', 'utf8'));
-  const fixtureAnswer = { kind: 'answer', text: fixtureProfile.projects[0].summary, factIds: ['projects.0'] };
+  // A valid fact ID must NOT launder a fabricated model claim into a cited answer.
+  const fixtureAnswer = { kind: 'answer', text: 'Alex was CTO at Fabricated Labs.', factIds: ['projects.0'] };
   const fixtureScript = await call('Page.addScriptToEvaluateOnNewDocument', { source: `
     window.__nativeCalls = { availability: 0, create: 0 };
     Object.defineProperty(globalThis, 'LanguageModel', { configurable: true, value: {
@@ -724,11 +725,13 @@ try {
     await writeFile(join(output,'native-chat-'+v.name+'-ready.png'),Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'));
     await evaluate('document.querySelector("#question").focus(); true');
     await call('Input.insertText', {text:fixtureProfile.faq[0].questions[0]}); await pressEnter();
-    await until(()=>evaluate('!!window.__nativeFinish && document.querySelector(".model-searching")?.textContent.includes("Chrome LLM API is drafting")'), 'Exact FAQ did not reach native adapter');
+    await until(()=>evaluate('!!window.__nativeFinish && document.querySelector(".model-searching")?.textContent.includes("Chrome LLM API is selecting")'), 'Exact FAQ did not reach native adapter');
     await evaluate('window.__nativeFinish(); true');
-    await until(()=>evaluate('document.querySelector(".exchange .message-name")?.textContent.includes("AI DRAFT · CHECK SOURCES")'), 'Native draft not rendered');
+    await until(()=>evaluate('document.querySelector(".exchange .message-name")?.textContent.includes("AUTHORED PROFILE · CHECK SOURCES")'), 'Native draft not rendered');
     const draft = await evaluate(`(() => {const chat=document.querySelector('.chat-card');chat.scrollIntoView({behavior:'instant',block:'start'});return {text:chat.querySelector('.exchange .bubble').textContent,links:[...chat.querySelectorAll('.exchange .sources a')].map(a=>a.href),width:innerWidth,scrollWidth:document.documentElement.scrollWidth};})()`);
-    assert(draft.text.includes(fixtureAnswer.text)); assert(draft.text.includes('Generated on this device'));
+    assert(draft.text.includes(fixtureProfile.projects[0].summary));
+    assert(!draft.text.includes(fixtureAnswer.text), 'Fabricated model claim surfaced as evidence-backed prose');
+    assert(draft.text.includes('On-device model selected authored profile statements'));
     assert(draft.links.length>0); assert(draft.links.every(link=>fixtureProfile.evidence.some(e=>e.url===link)));
     assert(draft.scrollWidth<=v.width+2, 'Native chat overflows '+v.name);
     await writeFile(join(output,'native-chat-'+v.name+'.png'),Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'));

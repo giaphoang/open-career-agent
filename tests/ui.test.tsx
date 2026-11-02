@@ -148,7 +148,7 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   await within(nativeControls).findByRole('button', { name: 'Turn off model' });
   expect(screen.getAllByRole('button', { name: 'Turn off model', hidden: true })).toHaveLength(1);
   expect(modelSummary.textContent).toMatch(/ON/);
-  expect(screen.getByText('Chrome LLM API enabled for conversation using the public profile')).toBeTruthy();
+  expect(screen.getByText('Chrome LLM API enabled for selecting public profile statements')).toBeTruthy();
   expect(screen.queryByRole('progressbar', { name: 'Chrome LLM API model download' })).toBeNull();
   const privateField = screen.getByLabelText('Ask a question about the portfolio');
   const askNative = (question: string) => {
@@ -175,12 +175,12 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   expect(native.reply.mock.calls[0]![0]).toBe(firstFaq.questions[0]);
   expect(native.reply.mock.calls[0]![1]).toEqual(rawProfile);
   expect(native.reply.mock.calls[0]![2]).toEqual([]);
-  expect(screen.getByText('Chrome LLM API is drafting a reply…')).toBeTruthy();
+  expect(screen.getByText('Chrome LLM API is selecting public profile facts…')).toBeTruthy();
   const draft = { kind: 'answer' as const, text: 'Here is a draft based on the public profile.', evidence: [firstSource] };
   await act(async () => { resolveReply({ kind: 'answer', answer: draft, elapsedMs: 12 }); });
   expect(screen.getByText(draft.text)).toBeTruthy();
-  expect(screen.getByText(/Chrome LLM API · AI DRAFT · CHECK SOURCES/)).toBeTruthy();
-  expect(screen.queryByText('Chrome LLM API is drafting a reply…')).toBeNull();
+  expect(screen.getByText(/Chrome LLM API · AUTHORED PROFILE · CHECK SOURCES/)).toBeTruthy();
+  expect(screen.queryByText('Chrome LLM API is selecting public profile facts…')).toBeNull();
   expect(screen.getAllByRole('link', { name: new RegExp(firstSource.label) }).some(link => link.getAttribute('href') === firstSource.url)).toBe(true);
 
   // The next turn receives public conversational context, never the salary refusal.
@@ -205,7 +205,7 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   expect(screen.getByText(firstFaq.answer)).toBeTruthy();
   expect(native.reply.mock.calls[3]![2]).toHaveLength(3);
   expect(JSON.stringify(native.reply.mock.calls[3]![2])).not.toMatch(/salary/i);
-  expect(screen.queryByText('Chrome LLM API is drafting a reply…')).toBeNull();
+  expect(screen.queryByText('Chrome LLM API is selecting public profile facts…')).toBeNull();
 
   fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
 
@@ -219,7 +219,7 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   await act(async () => { resolveReply({ kind: 'answer', answer: draft, elapsedMs: 25 }); });
   expect(screen.queryByText('Have you won a Nobel Prize?')).toBeNull();
   expect(screen.queryByText(draft.text)).toBeNull();
-  expect(screen.queryByText('Chrome LLM API is drafting a reply…')).toBeNull();
+  expect(screen.queryByText('Chrome LLM API is selecting public profile facts…')).toBeNull();
   expect(storageWrite).not.toHaveBeenCalled();
   expect(wasm.create).not.toHaveBeenCalled();
 
@@ -233,7 +233,7 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   expect(native.reply.mock.calls[6]![2]).toEqual([]);
   await act(async () => { resolveEarlierReply({ kind: 'answer', answer: { ...draft, text: 'This is a stale draft from the earlier request.' }, elapsedMs: 25 }); });
   expect(screen.queryByText('This is a stale draft from the earlier request.')).toBeNull();
-  expect(screen.getByText('Chrome LLM API is drafting a reply…')).toBeTruthy();
+  expect(screen.getByText('Chrome LLM API is selecting public profile facts…')).toBeTruthy();
 
   // Turning the provider off also aborts an active reply and discards its late result.
   fireEvent.click(screen.getByRole('button', { name: 'Turn off model' }));
@@ -241,7 +241,7 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   await screen.findByRole('button', { name: 'Enable on-device model' });
   await act(async () => { resolveReply({ kind: 'answer', answer: draft, elapsedMs: 25 }); });
   expect(screen.queryByText(draft.text)).toBeNull();
-  expect(screen.queryByText('Chrome LLM API is drafting a reply…')).toBeNull();
+  expect(screen.queryByText('Chrome LLM API is selecting public profile facts…')).toBeNull();
   expect(screen.getByText(firstFaq.answer)).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
   native.enable.mockImplementationOnce((options: typeof nativeStartup) => {
