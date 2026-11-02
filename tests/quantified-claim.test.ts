@@ -19,6 +19,31 @@ describe('numeric premises in optional model FAQ suggestions', () => {
     expect(hasUnsupportedQuantifiedPremise(question, leadership)).toBe(true);
   });
 
+  it.each([
+    'Did you manage two engineers?',
+    'Did you mentor twelve direct reports?',
+    'Did you lead twenty-four teams?',
+    'Did you hire ninety people?',
+  ])('suppresses a written small unsupported count: %s', question => {
+    expect(hasUnsupportedQuantifiedPremise(question, leadership)).toBe(true);
+  });
+
+  it('compares written small counts with authored digits and vice versa', () => {
+    const documented = { questions: ['How big was your team?'], answer: 'Alex mentored 24 engineers across 2 teams.' };
+    expect(hasUnsupportedQuantifiedPremise('Did you mentor twenty-four engineers?', documented)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you mentor twenty four engineers?', documented)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you lead two teams?', documented)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you lead three teams?', documented)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you mentor twenty-five engineers?', documented)).toBe(true);
+  });
+
+  it('does not interpret part of a written scale as a separate small count', () => {
+    const documented = { questions: ['How many events?'], answer: 'The project processed 2,000,000 events and 24,000 requests.' };
+    expect(hasUnsupportedQuantifiedPremise('Did you process two million events?', documented)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you process twenty-four thousand requests?', documented)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you process two thousand requests?', documented)).toBe(true);
+  });
+
   it('does not block ordinary paraphrases or an incidental use of one', () => {
     expect(hasUnsupportedQuantifiedPremise('Which projects did you lead?', leadership)).toBe(false);
     expect(hasUnsupportedQuantifiedPremise('Show one example of a technical project.', leadership)).toBe(false);
