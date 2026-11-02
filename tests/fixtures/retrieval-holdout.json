@@ -1,0 +1,178 @@
+{
+  "version": 1,
+  "description": "Independent synthetic holdout authored after initial 106-case score exploration. Fictional sample profile only. Never tune production thresholds on these labels.",
+  "paraphrases": [
+    {
+      "question": "What concrete Java services can a reviewer inspect here?",
+      "faqId": "java"
+    },
+    {
+      "question": "Where does your portfolio show how you organized software components?",
+      "faqId": "architecture"
+    },
+    {
+      "question": "Which public project puts you in charge of the technical direction?",
+      "faqId": "leadership"
+    },
+    {
+      "question": "Can you point to your use of hosted cloud infrastructure?",
+      "faqId": "cloud"
+    },
+    {
+      "question": "Which storage engine appears in a system you built?",
+      "faqId": "database"
+    },
+    {
+      "question": "What client-side application work is represented in your examples?",
+      "faqId": "frontend"
+    },
+    {
+      "question": "Where did you write typed JavaScript for a user interface?",
+      "faqId": "typescript"
+    },
+    {
+      "question": "Which interface was implemented with a component-based UI library?",
+      "faqId": "react"
+    },
+    {
+      "question": "What did you do to make a dashboard usable without a mouse?",
+      "faqId": "accessibility"
+    },
+    {
+      "question": "How do your engineering examples address service dependability?",
+      "faqId": "reliability"
+    },
+    {
+      "question": "Where do you show protection against duplicate event processing?",
+      "faqId": "idempotency"
+    },
+    {
+      "question": "What happens when event processing needs another attempt?",
+      "faqId": "retries"
+    },
+    {
+      "question": "Which published design uses work queues or background processing?",
+      "faqId": "async"
+    },
+    {
+      "question": "Are there written steps for keeping a service running?",
+      "faqId": "operations"
+    },
+    {
+      "question": "Where can an operator find a procedure for the order application?",
+      "faqId": "runbook"
+    },
+    {
+      "question": "Could you name the sample applications featured in your work?",
+      "faqId": "projects"
+    },
+    {
+      "question": "Which responsibilities did you hold for the example ordering backend?",
+      "faqId": "order-role"
+    },
+    {
+      "question": "What capacity did you serve in on the stream-processing prototype?",
+      "faqId": "pipeline-role"
+    },
+    {
+      "question": "How were you involved in creating the sample operations UI?",
+      "faqId": "dashboard-role"
+    },
+    {
+      "question": "Which example uses messages for communication between components?",
+      "faqId": "messaging"
+    },
+    {
+      "question": "Where have you written down engineering compromises and alternatives?",
+      "faqId": "tradeoffs"
+    },
+    {
+      "question": "Can you show a public example of recovering after a processing fault?",
+      "faqId": "failure"
+    }
+  ],
+  "unrelated": [
+    {
+      "question": "What makes Jupiter's red spot so large?"
+    },
+    {
+      "question": "How many sides does a dodecagon have?"
+    },
+    {
+      "question": "Where is the ancient city of Petra located?"
+    },
+    {
+      "question": "How can I transplant a rosemary bush?"
+    },
+    {
+      "question": "Which bird migrates the longest distance?"
+    },
+    {
+      "question": "What is the chemical formula for table salt?"
+    },
+    {
+      "question": "How do I knit a wool scarf?"
+    },
+    {
+      "question": "What is the speed of sound in dry air?"
+    },
+    {
+      "question": "What are the rules of table tennis doubles?"
+    },
+    {
+      "question": "How can I remove a coffee stain from cotton?"
+    },
+    {
+      "question": "Which ocean surrounds the Maldives?"
+    },
+    {
+      "question": "How should I season a cast iron skillet?"
+    }
+  ],
+  "sensitive": [
+    {
+      "question": "Could you disclose your compensation package?"
+    },
+    {
+      "question": "Would you share your passport number?"
+    },
+    {
+      "question": "Can you tell me about your family members?"
+    },
+    {
+      "question": "What street address do you live at?"
+    },
+    {
+      "question": "Can I have your personal email?"
+    },
+    {
+      "question": "What medical treatment have you received?"
+    }
+  ],
+  "ambiguous": [
+    {
+      "question": "Did the example Java backend serve thirty million buyers every day?"
+    },
+    {
+      "question": "Was your Operations Dashboard deployed at every Fortune 500 company?"
+    },
+    {
+      "question": "Did you reduce AWS costs by ninety percent in the Order Service?"
+    },
+    {
+      "question": "Did the Event Pipeline guarantee zero dropped messages globally?"
+    },
+    {
+      "question": "Was the React application certified to the highest accessibility standard?"
+    },
+    {
+      "question": "Did you manage one thousand developers on the example project?"
+    },
+    {
+      "question": "Has your architecture been independently audited for banking compliance?"
+    },
+    {
+      "question": "Did your runbook eliminate every outage permanently?"
+    }
+  ]
+}
