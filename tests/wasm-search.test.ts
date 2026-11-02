@@ -74,6 +74,24 @@ describe('WASM worker boundary', () => {
     expect(await pending).toBe(0);
     search.dispose();
   });
+  it('keeps WASM initialization and teardown alive when optional UI observers throw', async () => {
+    vi.stubGlobal('Worker', FakeWorker);
+    const onProgress = vi.fn(() => { throw new Error('broken progress observer'); });
+    const onClosed = vi.fn(() => { throw new Error('broken close observer'); });
+    const created = createWasmSearch({ signal: new AbortController().signal, onProgress, onClosed });
+    const worker = FakeWorker.last;
+    expect(() => worker.emit({ type: 'progress', progress: 0.45 })).not.toThrow();
+    expect(onProgress).toHaveBeenCalledWith(0.45);
+    worker.emit({ type: 'ready' });
+    const search = await created;
+    const pending = search.select('Java work?', faqs, new AbortController().signal);
+    worker.emit({ type: 'result', ok: true, id: 1, index: 0 });
+    expect(await pending).toBe(0);
+    expect(() => search.dispose()).not.toThrow();
+    expect(onClosed).toHaveBeenCalledOnce();
+    expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+
   it('starts only when requested and validates a successful worker response', async () => {
     const { worker, search, onClosed } = await ready();
     const pending = search.select('Have you built React UIs?', faqs, new AbortController().signal);
