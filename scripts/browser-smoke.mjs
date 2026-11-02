@@ -353,7 +353,7 @@ try {
       model: 'Xenova/all-MiniLM-L6-v2', modelRevision: '751bff37182d3f1213fa05d7196b954e230abad9',
       perCategory, totalCorpusCases: categories.reduce((sum, category) => sum + corpus[category].length + holdout[category].length, 0), calibrationCases: rows.filter(row => row.split === 'calibration').length,
       holdoutCases: rows.filter(row => row.split === 'holdout').length, holdoutVersion: holdout.version,
-      sampledCases: rows.length, results: [], limitations: 'Chromium desktop CI runner only; not a mobile device or WebGPU test. Model/runtime bytes are CDP-observed uncached encoded transfers in this one CI run; UI wall time includes rendering; worker timings are separately displayed. No validation that linked evidence substantiates claims.' };
+      sampledCases: rows.length, results: [], limitations: 'Headless Chromium on the reported host; GPU/WebGPU disabled; not a mobile device or Safari test. Model/runtime bytes are CDP-observed uncached encoded transfers in this run; UI wall time includes rendering; worker timings are separately displayed. No validation that linked evidence substantiates claims.' };
     try {
       // Track actual completed remote transfer bytes for model/runtime downloads.
       // Workers use separate CDP sessions: page-only Network events miss them.
@@ -438,7 +438,7 @@ try {
         requests: [...transfersByHost.values()].reduce((sum, item) => sum + item.requests, 0),
         hosts: Object.fromEntries([...transfersByHost].sort(([a], [b]) => a.localeCompare(b))),
         meterErrors,
-        limitation: 'Encoded response transfer sizes on a fresh Chromium CI profile, not model weight size or a browser cache/real-phone measurement.'
+        limitation: 'Encoded response transfer sizes on a fresh Chromium profile, not model weight size or a browser cache/real-phone measurement.'
       };
       unobserve();
       await call('Target.setAutoAttach', { autoAttach: false, waitForDebuggerOnStart: false, flatten: true });
@@ -549,7 +549,7 @@ try {
       assert.equal(baseline.unrelatedFalseRelated, calibration.unrelated.selectedFaqs, 'Calibration scores must reproduce WASM false suggestions.');
       assert.equal(holdoutBaseline.paraphraseCorrect, heldOut.paraphrases.correctSelections, 'Holdout scores must reproduce WASM correct matches.');
       assert.equal(holdoutBaseline.unrelatedFalseRelated, heldOut.unrelated.selectedFaqs, 'Holdout scores must reproduce WASM false suggestions.');
-      benchmarkReport.calibrationLimitation = 'The 106 older synthetic questions are calibration data. The 48 new questions are a first independent holdout; never optimize based on its results and then call it independent. Real-device validation is still absent.';
+      benchmarkReport.calibrationLimitation = 'The 106 older synthetic questions are calibration data. The 48 new questions are a first independent holdout; never optimize based on its results and then call it independent. Physical mobile-device validation is outside this run.';
 
       // A reproducible regression budget, not a claim of calibrated model accuracy.
       // Sampled local runs cannot be compared to the entire 154-case population.
@@ -580,7 +580,7 @@ try {
     await writeFile(join(output, 'wasm-relevance.json'), JSON.stringify(benchmarkReport, null, 2) + '\n');
     console.log('Real WASM evaluation summary: ' + JSON.stringify({ summary: benchmarkReport.summary, modelNetworkTransfer: benchmarkReport.modelNetworkTransfer, performancePanel: benchmarkReport.performancePanel }, null, 2));
   }
-  const report = { browser, host: { platform: process.platform, arch: process.arch, cpuModel: cpus()[0]?.model ?? 'unknown', logicalCores: cpus().length, visibleRamGiB: Number((totalmem() / 1024 ** 3).toFixed(1)) }, method: 'headless Chromium; WebGPU disabled; no local model enabled; network offline after initial load', results, ...(wasmEvaluation ? { wasmEvaluation: { sampleCount: wasmEvaluation.sampledCases, summary: wasmEvaluation.summary } } : {}) };
+  const report = { browser, host: { platform: process.platform, arch: process.arch, cpuModel: cpus()[0]?.model ?? 'unknown', logicalCores: cpus().length, visibleRamGiB: Number((totalmem() / 1024 ** 3).toFixed(1)) }, method: 'headless Chromium; WebGPU disabled; emulated responsive viewports; baseline smoke has no model enabled and goes offline after initial load; opt-in WASM evaluation reported separately', results, ...(wasmEvaluation ? { wasmEvaluation: { sampleCount: wasmEvaluation.sampledCases, summary: wasmEvaluation.summary } } : {}) };
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
   ws.close();
