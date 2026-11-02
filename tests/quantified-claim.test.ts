@@ -164,7 +164,8 @@ describe('numeric premises in optional model FAQ suggestions', () => {
     expect(hasUnsupportedQuantifiedPremise('Did you employ fewer than ninety engineers?', exact)).toBe(true);
     expect(hasUnsupportedQuantifiedPremise('Was availability approximately ninety percent?', exact)).toBe(true);
     expect(hasUnsupportedQuantifiedPremise('Did you work with 90 engineers?', exact)).toBe(false);
-    expect(hasUnsupportedQuantifiedPremise('Show me more than one example.', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Show me more than one example.', exact)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you manage more than one engineer?', { questions: ['How large?'], answer: 'The sample had one engineer.' })).toBe(true);
   });
 
   it('accepts only matching authored comparison classes, values and count units', () => {
