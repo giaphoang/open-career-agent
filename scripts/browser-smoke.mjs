@@ -453,7 +453,7 @@ try {
       const navigation = await call('Page.navigate', { url: 'http://127.0.0.1:' + server.address().port + '/' });
       if (navigation.errorText) throw new Error(navigation.errorText);
       await until(() => evaluate('document.readyState === "complete" && !!document.querySelector(".developer-tools")'), 'Benchmark page did not load.');
-      const pressed = await evaluate('(() => {document.querySelector(".developer-tools").open = true; document.querySelector(".model-panel").open = true; const button = [...document.querySelectorAll(".model-content button")].find(b => b.textContent.includes("Enable WASM search")); if (!button) return false; button.click(); return true;})()');
+      const pressed = await evaluate('(() => {document.querySelector(".developer-tools").open = true; document.querySelector(".template-options").open = true; document.querySelector(".model-panel").open = true; const button = [...document.querySelectorAll(".model-content button")].find(b => b.textContent.includes("Enable WASM search")); if (!button) return false; button.click(); return true;})()');
       assert(pressed, 'Could not opt into WASM search.');
       const beganAt = Date.now();
       const status = await waitModel(async () => {
