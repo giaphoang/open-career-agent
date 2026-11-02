@@ -168,6 +168,32 @@ describe('numeric premises in optional model FAQ suggestions', () => {
     expect(hasUnsupportedQuantifiedPremise('Did you manage more than one engineer?', { questions: ['How large?'], answer: 'The sample had one engineer.' })).toBe(true);
   });
 
+  it('treats recruiter plus-sign quantities as minimums, not exact counts', () => {
+    const exact = {
+      questions: ['What scale is documented?'],
+      answer: 'The example lists 5 years, 20,000 users and 20 engineers.',
+    };
+    expect(hasUnsupportedQuantifiedPremise('Do you have 5+ years of experience?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you work for 5 + years?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you support 20K+ users?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you lead 20+ engineers?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you work for 5 years?', exact)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you support 20K users?', exact)).toBe(false);
+
+    const minimum = {
+      questions: ['What minimum scale was documented?'],
+      answer: 'The example lists at least 5 years and at least 20 thousand users.',
+    };
+    expect(hasUnsupportedQuantifiedPremise('Do you have 5+ years?', minimum)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you serve 20K+ users?', minimum)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you lead 5+ teams?', minimum)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you lead 5+ engineers?', {
+      questions: ['How big was the team?'], answer: 'At least 5 teams worked on the example.',
+    })).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Do you have more than 5 years?', minimum)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Do you use C++?', leadership)).toBe(false);
+  });
+
   it('accepts only matching authored comparison classes, values and count units', () => {
     const compared = {
       questions: ['What scale was described?'],
