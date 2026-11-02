@@ -4,6 +4,7 @@ import { validateProfile } from '../src/engine';
 import rawProfile from './fixtures/sample-profile.json';
 
 const profile = validateProfile(rawProfile);
+const modelResult = JSON.stringify({ kind: 'answer', text: 'Order Service', factIds: ['projects.0'] });
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
@@ -141,7 +142,7 @@ describe('browser Prompt API', () => {
   });
 
   it('bounds the facts and history, keeps injection text as data, and excludes private history', async () => {
-    const clone = { prompt: vi.fn(async () => greeting), destroy: vi.fn() };
+    const clone = { prompt: vi.fn(async () => modelResult), destroy: vi.fn() };
     const session = { clone: vi.fn(async () => clone), destroy: vi.fn() };
     vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
     const model = await enableNativeModel({ signal: new AbortController().signal });
@@ -194,7 +195,7 @@ describe('browser Prompt API', () => {
     const session = { clone: vi.fn(() => phase === 'clone' ? new Promise<typeof clone>(resolve => { finishClone = resolve; }) : Promise.resolve(clone)), destroy: vi.fn() };
     vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
     const model = await enableNativeModel({ signal: new AbortController().signal });
-    const pending = model.reply('Hello', profile, [], new AbortController().signal);
+    const pending = model.reply('Tell me about the Order Service.', profile, [], new AbortController().signal);
     await vi.advanceTimersByTimeAsync(45000);
     expect(await pending).toEqual({ kind: 'fallback', reason: 'timeout' });
     if (phase === 'clone') { finishClone(clone); await Promise.resolve(); expect(clone.prompt).not.toHaveBeenCalled(); }
@@ -212,15 +213,15 @@ describe('browser Prompt API', () => {
     vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
     const model = await enableNativeModel({ signal: new AbortController().signal });
     const signal = new AbortController();
-    const old = model.reply('Hello', profile, [], signal.signal);
+    const old = model.reply('Tell me about the Order Service.', profile, [], signal.signal);
     await Promise.resolve();
     signal.abort();
     const next = model.reply('Hi again', profile, [], new AbortController().signal);
     expect(await old).toEqual({ kind: 'fallback', reason: 'cancelled' });
     await Promise.resolve();
-    finishOld(greeting); await Promise.resolve();
+    finishOld(modelResult); await Promise.resolve();
     expect(await model.reply('Another concurrent turn', profile, [], new AbortController().signal)).toEqual({ kind: 'fallback', reason: 'busy' });
-    finishNew(greeting);
+    finishNew(modelResult);
     expect(await next).toMatchObject({ kind: 'answer' });
     expect(oldClone.destroy).toHaveBeenCalledOnce();
     expect(newClone.destroy).toHaveBeenCalledOnce();
@@ -229,11 +230,11 @@ describe('browser Prompt API', () => {
 
   it('disposes late clones after closing without invoking their prompt', async () => {
     let finishClone!: (value: typeof clone) => void;
-    const clone = { prompt: vi.fn(async () => greeting), destroy: vi.fn() };
+    const clone = { prompt: vi.fn(async () => modelResult), destroy: vi.fn() };
     const session = { clone: vi.fn(() => new Promise<typeof clone>(resolve => { finishClone = resolve; })), destroy: vi.fn() };
     vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
     const model = await enableNativeModel({ signal: new AbortController().signal });
-    const pending = model.reply('Hello', profile, [], new AbortController().signal);
+    const pending = model.reply('Tell me about the Order Service.', profile, [], new AbortController().signal);
     model.dispose();
     expect(await pending).toEqual({ kind: 'fallback', reason: 'cancelled' });
     finishClone(clone); await Promise.resolve();
