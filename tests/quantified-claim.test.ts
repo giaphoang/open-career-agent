@@ -209,6 +209,29 @@ describe('numeric premises in optional model FAQ suggestions', () => {
     expect(hasUnsupportedQuantifiedPremise('Which projects have you worked on?', compared)).toBe(false);
   });
 
+  it('does not mistake symbolic inequality requirements for exact career claims', () => {
+    const exact = {
+      questions: ['What numbers were documented?'],
+      answer: 'The example reported 5 years, 20,000 users and 90% uptime.',
+    };
+    expect(hasUnsupportedQuantifiedPremise('Do you have >=5 years of experience?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Do you have ≥ 5 years of experience?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you serve >20K users?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you work < 5 years?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you work <=5 years?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Was uptime ≤ 90%?', exact)).toBe(true);
+    const ranged = {
+      questions: ['What minimum scale is published?'],
+      answer: 'At least 5 years, at least 20 thousand users, and over 90% uptime.',
+    };
+    expect(hasUnsupportedQuantifiedPremise('Do you have ≥5 years of experience?', ranged)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you serve >=20K users?', ranged)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Was uptime >90%?', ranged)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you work ≤5 years?', ranged)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you serve ≥20K requests?', ranged)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Do you use C++?', ranged)).toBe(false);
+  });
+
 });
 
 describe('unsupported absolute career premises', () => {
