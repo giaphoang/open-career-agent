@@ -121,6 +121,15 @@ const COMPARED_QUANTITY = new RegExp(
 const SUFFIX_AT_LEAST_QUANTITY = new RegExp(
   `\\b(${COUNTED_NUMBER})\\s*\\+(?![\\p{L}\\p{N}+])`, 'giu',
 );
+// Symbolic recruiter requirements (>=5 years, ≥20K users, <90% uptime)
+// assert a range, not the exact observed value. Normalize to the same
+// comparison classes as the written phrases; this is not entailment.
+const SYMBOLIC_COMPARISON_KINDS: Readonly<Record<string, string>> = {
+  '>': 'gt', '>=': 'gte', '≥': 'gte', '<': 'lt', '<=': 'lte', '≤': 'lte',
+};
+const SYMBOLIC_COMPARED_QUANTITY = new RegExp(
+  `(>=|<=|≥|≤|>|<)\\s*(${COUNTED_NUMBER}(?:\\s*(?:%|percent))?)(?![\\p{L}\\p{N}])`, 'giu',
+);
 function comparedQuantities(text: string): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>();
   for (const match of text.matchAll(COMPARED_QUANTITY)) {
@@ -128,6 +137,17 @@ function comparedQuantities(text: string): Map<string, Set<string>> {
     if (!kind) continue;
     const counts = quantities(match[2]!);
     // The isolated word "one" is normally exempt, but not in "over one".
+    if (match[2]!.toLowerCase() === 'one') counts.add(quantityKey(1, 'count'));
+    for (const count of counts) {
+      const kinds = result.get(count) ?? new Set<string>();
+      kinds.add(kind);
+      result.set(count, kinds);
+    }
+  }
+  for (const match of text.matchAll(SYMBOLIC_COMPARED_QUANTITY)) {
+    const kind = SYMBOLIC_COMPARISON_KINDS[match[1]!];
+    const counts = quantities(match[2]!);
+    // Standalone "one" still represents a quantity after a comparison sign.
     if (match[2]!.toLowerCase() === 'one') counts.add(quantityKey(1, 'count'));
     for (const count of counts) {
       const kinds = result.get(count) ?? new Set<string>();
