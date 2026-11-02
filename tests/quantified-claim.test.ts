@@ -156,4 +156,30 @@ describe('numeric premises in optional model FAQ suggestions', () => {
       answer: 'The sample observed 90% availability.',
     })).toBe(true);
   });
+
+  it('does not borrow an exact number to support a stronger range or approximation', () => {
+    const exact = { questions: ['How large was the test?'], answer: 'The sample involved 90 engineers and observed 90% availability.' };
+    expect(hasUnsupportedQuantifiedPremise('Did you manage more than 90 engineers?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you support at least 90 engineers?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you employ fewer than ninety engineers?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Was availability approximately ninety percent?', exact)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you work with 90 engineers?', exact)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Show me more than one example.', exact)).toBe(true);
+  });
+
+  it('accepts only matching authored comparison classes, values and count units', () => {
+    const compared = {
+      questions: ['What scale was described?'],
+      answer: 'The sample had over 90 engineers, about 90% uptime and under 24 thousand events.',
+    };
+    expect(hasUnsupportedQuantifiedPremise('Did you manage more than ninety engineers?', compared)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you achieve roughly 90 percent uptime?', compared)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did it handle less than 24,000 events?', compared)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you manage at least 90 engineers?', compared)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you manage more than 90 teams?', compared)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you achieve almost 90% uptime?', compared)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did it handle more than 24,000 events?', compared)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Which projects have you worked on?', compared)).toBe(false);
+  });
+
 });
