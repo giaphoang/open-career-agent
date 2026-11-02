@@ -26,6 +26,34 @@ const server = createServer(async (req, res) => {
   }
 });
 const pause = ms => new Promise(r => setTimeout(r, ms));
+// Check computed browser colors, not CSS string assumptions. Only opaque,
+// solid-background recruiter text is sampled; this is not a full WCAG audit.
+function textContrastRatio(foreground, background) {
+  const channels = css => {
+    const rgb = css.match(/-?\d*\.?\d+/g)?.slice(0, 3).map(Number);
+    assert(rgb?.length === 3 && rgb.every(n => Number.isFinite(n) && n >= 0 && n <= 255),
+      'Invalid computed CSS color: ' + css);
+    return rgb;
+  };
+  const luminance = css => {
+    const [red, green, blue] = channels(css).map(value => {
+      const c = value / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  };
+  const a = luminance(foreground), b = luminance(background);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+function assertReadableText(sample, viewport) {
+  assert(sample?.background && sample?.foreground, viewport + ' missing text sample: ' + JSON.stringify(sample));
+  const ratio = textContrastRatio(sample.foreground, sample.background);
+  assert(ratio >= 4.5, viewport + ' low text contrast: ' + sample.selector + ' ' + ratio.toFixed(2) + ':1');
+  assert(sample.fontSizePx >= sample.minFontPx,
+    viewport + ' small text: ' + sample.selector + ' ' + sample.fontSizePx + 'px');
+  return { ...sample, contrastRatio: Number(ratio.toFixed(2)) };
+}
+
 async function until(fn, message) {
   for (let i = 0; i < 120; i++) {
     try { const value = await fn(); if (value) return value; } catch {}
@@ -135,6 +163,41 @@ try {
       assert(layout.chatLeft < layout.profileLeft && layout.chatWidth > layout.profileWidth,
         v.name + ' must put the recruiter chat in the wider first column: ' + JSON.stringify(layout));
     }
+    // Measure readable text in the live Chromium layout at each viewport.
+    // Included in artifacts/browser-smoke/report.json for regression evidence.
+    const readabilitySpecs = [
+      ['.hero-copy > p:not(.hero-role)', 14],
+      ['.hero-meta', 12],
+      ['.chat-header p', 14],
+      ['.chat-body .bubble', 14],
+      ['.suggestions button', 12],
+      ['.profile-card .bio', 14],
+      ['.profile-card .headline', 14],
+      ['.profile-card .sources a', 12],
+      ['.project-content p', 14],
+      ['.timeline p', 14],
+      ['.footer p', 11]
+    ];
+    const readability = (await evaluate(`(() => {
+      window.__careerTextSample = (selector, minFontPx) => {
+        const element = document.querySelector(selector);
+        if (!element) return { selector, minFontPx, missing: true };
+        let ancestor = element, background = null;
+        while (ancestor) {
+          const candidate = getComputedStyle(ancestor).backgroundColor;
+          if (candidate !== 'transparent' && candidate !== 'rgba(0, 0, 0, 0)') {
+            background = candidate;
+            break;
+          }
+          ancestor = ancestor.parentElement;
+        }
+        return { selector, minFontPx, background,
+          foreground: getComputedStyle(element).color,
+          fontSizePx: parseFloat(getComputedStyle(element).fontSize) };
+      };
+      return ${JSON.stringify(readabilitySpecs)}.map(([selector, minFontPx]) =>
+        window.__careerTextSample(selector, minFontPx));
+    })()`)).map(sample => assertReadableText(sample, v.name));
     // A keyboard-only recruiter can bypass navigation and the long hero to reach chat.
     // Trigger the real Enter key on the focused skip link; .click() alone would
     // miss browser focus and default-action regressions.
@@ -198,6 +261,8 @@ try {
     await call('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
     await evaluate('document.querySelector(".hero-example").click(); true');
     await until(() => evaluate('document.querySelectorAll(".exchange .sources a").length > 0'), 'Offline evidence-backed answer failed on ' + v.name);
+    readability.push(assertReadableText(
+      await evaluate("window.__careerTextSample('.exchange .sources a', 12)"), v.name));
     // Actual keyboard event path, not a JS .click(): activate the main recruiter
     // CTA, type a question, submit with Enter, and toggle developer details.
     await evaluate('document.querySelector(".hero-actions button").focus(); true');
@@ -231,7 +296,7 @@ try {
     const screenshotHeight = await evaluate('document.documentElement.scrollHeight');
     const screenshot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { x: 0, y: 0, width: v.width, height: screenshotHeight, scale: 1 } });
     await writeFile(join(output, v.name + '.png'), Buffer.from(screenshot.data, 'base64'));
-    results.push({ viewport: v.name, keyboardSkipLink: skipLink, ...layout, ...(mobileUsability ? { mobileUsability } : {}), ...keyboard, keyboardSubmitted: true, keyboardDeveloperDisclosure: true, screenshotHeight, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
+    results.push({ viewport: v.name, keyboardSkipLink: skipLink, readability, ...layout, ...(mobileUsability ? { mobileUsability } : {}), ...keyboard, keyboardSubmitted: true, keyboardDeveloperDisclosure: true, screenshotHeight, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
   }
 
   // Opt-in REAL model evaluation. This path downloads the actual quantized WASM
