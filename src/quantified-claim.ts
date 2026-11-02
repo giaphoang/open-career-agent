@@ -33,14 +33,19 @@ const DIGIT_QUANTITY = /\b\d+(?:,\d{3})*(?:\.\d+)?(?:\s*(?:%|percent|hundred|tho
 // not evidence that the candidate led exactly one project.
 const SMALL_SPELLED_QUANTITY = /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[\s-]+(?:one|two|three|four|five|six|seven|eight|nine))?\b/gi;
 
-function quantities(text: string): Set<number> {
-  const found = new Set<number>();
+// Percentages and headcounts sharing a number are different assertions.
+// These coarse dimensions are a safety check, not factual entailment.
+type QuantityKind = 'percent' | 'count';
+const quantityKey = (value: number, kind: QuantityKind): string => `${kind}:${value}`;
+
+function quantities(text: string): Set<string> {
+  const found = new Set<string>();
   for (const match of text.matchAll(DIGIT_QUANTITY)) {
     const parts = match[0]!.toLowerCase().replace(/,/g, '').match(/^(\d+(?:\.\d+)?)(?:\s*(%|percent|hundred|thousand|million|billion))?$/);
     if (!parts) continue;
     const scale = parts[2] === '%' ? 1 : (SCALES[parts[2] ?? ''] ?? 1);
     const value = Number(parts[1]) * scale;
-    if (Number.isFinite(value)) found.add(value);
+    if (Number.isFinite(value)) found.add(quantityKey(value, parts[2] === '%' || parts[2] === 'percent' ? 'percent' : 'count'));
   }
   const scaledSpans: Array<[number, number]> = [];
   for (const match of text.matchAll(SPELLED_QUANTITY)) {
@@ -50,7 +55,7 @@ function quantities(text: string): Set<number> {
     const scale = SCALES[suffix] ?? 1;
     const value = tokens.slice(0, scale === 1 && suffix !== 'percent' ? tokens.length : -1)
       .reduce((sum, token) => sum + (WORD_VALUES[token] ?? 0), 0) * scale;
-    if (Number.isFinite(value)) found.add(value);
+    if (Number.isFinite(value)) found.add(quantityKey(value, suffix === 'percent' ? 'percent' : 'count'));
   }
   for (const match of text.matchAll(SMALL_SPELLED_QUANTITY)) {
     // "two million" must count as 2,000,000 only, never as both 2 and
@@ -58,7 +63,7 @@ function quantities(text: string): Set<number> {
     if (scaledSpans.some(([start, end]) => match.index < end && match.index + match[0].length > start)) continue;
     const value = match[0].toLowerCase().replace(/-/g, ' ').split(/\s+/)
       .reduce((sum, word) => sum + (WORD_VALUES[word] ?? 0), 0);
-    if (value > 0) found.add(value);
+    if (value > 0) found.add(quantityKey(value, 'count'));
   }
   return found;
 }
