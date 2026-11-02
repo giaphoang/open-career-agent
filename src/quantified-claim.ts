@@ -33,6 +33,12 @@ const DIGIT_QUANTITY = /\b\d+(?:,\d{3})*(?:\.\d+)?(?:\s*(?:%|percent|hundred|tho
 // not evidence that the candidate led exactly one project.
 const SMALL_SPELLED_QUANTITY = /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[\s-]+(?:one|two|three|four|five|six|seven|eight|nine))?\b/gi;
 
+// When a number describes a recognized entity, the FAQ must support that
+// entity, not merely contain the same number for a different kind of count.
+// Intentionally narrow: this does not attempt to infer employment relationships.
+const COUNTED_UNIT = 'engineers?|developers?|teams?|projects?|users?|customers?|subscribers?|employees?|members?|people|persons?|events?|messages?|requests?|transactions?|systems?|services?|devices?|machines?|applications?|products?|years?|months?|dollars?';
+const COUNTED_NUMBER = `(?:\\d+(?:,\\d{3})*(?:\\.\\d+)?|(?:${WORDS})(?:[\\s-]+(?:${WORD_UNITS}))?(?:[\\s-]+(?:hundred|thousand|million|billion))?)`;
+const COUNTED_PHRASE = new RegExp(`\\b(${COUNTED_NUMBER})[\\s-]+(${COUNTED_UNIT})\\b`, 'gi');
 // Percentages and headcounts sharing a number are different assertions.
 // These coarse dimensions are a safety check, not factual entailment.
 type QuantityKind = 'percent' | 'count';
@@ -68,10 +74,29 @@ function quantities(text: string): Set<string> {
   return found;
 }
 
+/** Recognized count nouns are checked per quantity, not across the whole FAQ. */
+function countedUnits(text: string): Map<string, Set<string>> {
+  const units = new Map<string, Set<string>>();
+  for (const match of text.matchAll(COUNTED_PHRASE)) {
+    const count = [...quantities(match[1]!)].find(value => value.startsWith('count:'));
+    if (!count) continue;
+    const noun = match[2]!.toLowerCase();
+    const unit = noun === 'people' ? 'person' : noun.endsWith('s') ? noun.slice(0, -1) : noun;
+    const current = units.get(count) ?? new Set<string>();
+    current.add(unit);
+    units.set(count, current);
+  }
+  return units;
+}
+
 /** True when a numeric premise is absent from the model-selected authored FAQ. */
 export function hasUnsupportedQuantifiedPremise(question: string, faq: QuantifiedFaq): boolean {
   const asserted = quantities(question);
   if (asserted.size === 0) return false;
-  const authored = quantities([...faq.questions, faq.answer].join(' '));
-  return [...asserted].some(value => !authored.has(value));
+  const authoredText = [...faq.questions, faq.answer].join(' ');
+  const authored = quantities(authoredText);
+  if ([...asserted].some(value => !authored.has(value))) return true;
+  const authoredUnits = countedUnits(authoredText);
+  return [...countedUnits(question)].some(([count, units]) =>
+    [...units].some(unit => !authoredUnits.get(count)?.has(unit)));
 }

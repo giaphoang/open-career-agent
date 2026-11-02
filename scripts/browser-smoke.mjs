@@ -86,7 +86,7 @@ try {
     return result.result.value;
   }
   const results = [];
-  for (const v of [{ name: 'desktop', width: 1280, height: 800, mobile: false }, { name: 'mobile', width: 390, height: 844, mobile: true }]) {
+  for (const v of [{ name: 'desktop', width: 1280, height: 800, mobile: false }, { name: 'tablet', width: 800, height: 900, mobile: false }, { name: 'mobile', width: 390, height: 844, mobile: true }]) {
     await call('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
     await call('Emulation.setDeviceMetricsOverride', { width: v.width, height: v.height, deviceScaleFactor: 1, mobile: v.mobile });
     // Verify both CSS and JS motion preferences: desktop normal, mobile reduced.
@@ -116,6 +116,10 @@ try {
         developerLast: !!dev && !!exp && !!(exp.compareDocumentPosition(dev) & Node.DOCUMENT_POSITION_FOLLOWING),
         developerCollapsed: !document.querySelector('.developer-tools')?.open,
         chatFirst: !!chat && !!profile && chat.getBoundingClientRect().top <= profile.getBoundingClientRect().top + 1,
+        chatWidth: Math.round(chat?.getBoundingClientRect().width ?? 0),
+        profileWidth: Math.round(profile?.getBoundingClientRect().width ?? 0),
+        chatLeft: Math.round(chat?.getBoundingClientRect().left ?? 0),
+        profileLeft: Math.round(profile?.getBoundingClientRect().left ?? 0),
         formLabeled: !!document.querySelector('label[for="question"]'),
         sendLabeled: document.querySelector('.composer button')?.getAttribute('aria-label') === 'Send question'
       };
@@ -124,7 +128,13 @@ try {
     assert(layout.developerLast && layout.developerCollapsed && layout.formLabeled && layout.sendLabeled);
     assert(layout.developerHeight > 0 && layout.developerTop < layout.scrollHeight, 'Developer footer must actually be visible in page layout.');
     assert(layout.width <= v.width + 2 && layout.scrollWidth <= layout.width + 2, v.name + ' has horizontal overflow or incorrect viewport scale.');
-    if (v.mobile) assert(layout.chatFirst, 'Mobile should show recruiter chat before sidebar.');
+    if (v.mobile) {
+      assert(layout.chatFirst, 'Mobile should show recruiter chat before sidebar.');
+      assert(Math.abs(layout.chatWidth - layout.profileWidth) <= 2, 'Mobile recruiter chat and profile must share a full-width column.');
+    } else {
+      assert(layout.chatLeft < layout.profileLeft && layout.chatWidth > layout.profileWidth,
+        v.name + ' must put the recruiter chat in the wider first column: ' + JSON.stringify(layout));
+    }
     // A keyboard-only recruiter can bypass navigation and the long hero to reach chat.
     // Trigger the real Enter key on the focused skip link; .click() alone would
     // miss browser focus and default-action regressions.

@@ -91,6 +91,34 @@ describe('numeric premises in optional model FAQ suggestions', () => {
     expect(hasUnsupportedQuantifiedPremise('Did you work with twenty-four engineers?', mixed)).toBe(false);
   });
 
+  it('rejects a reused number when it counts a different entity', () => {
+    const documented = {
+      questions: ['How large was the example project?'],
+      answer: 'The sample processed 24,000 events with 90 engineers across 2 teams.',
+    };
+    expect(hasUnsupportedQuantifiedPremise('Did you lead 90 teams?', documented)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you mentor ninety engineers?', documented)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you lead two teams?', documented)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did the sample process 24,000 requests?', documented)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did it process twenty-four thousand events?', documented)).toBe(false);
+    // Matching a count noun only allows an authored FAQ to be shown as related;
+    // it never verifies the action asserted in the recruiter's question.
+  });
+
+  it('checks every recognized count unit independently, including plural aliases', () => {
+    const documented = {
+      questions: ['How many people worked there?'],
+      answer: 'The example had 24 people and handled 24 events.',
+    };
+    expect(hasUnsupportedQuantifiedPremise('Were there twenty-four persons?', documented)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Were there 24 events and 24 persons?', documented)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Were there 24 events and 24 teams?', documented)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you serve 24 users?', documented)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you use Java 17?', {
+      questions: ['What Java versions?'], answer: 'Java 17 was used.',
+    })).toBe(false);
+  });
+
   it('does not equate different percentages or large numeric claims', () => {
     expect(hasUnsupportedQuantifiedPremise('Was 99% availability achieved?', {
       questions: ['What is the system availability?'],
