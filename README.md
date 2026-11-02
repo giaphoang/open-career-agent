@@ -36,6 +36,42 @@ npm run evaluate
 
 The preview command serves the production build locally. These commands do not themselves publish a site.
 
+### Test on a local Mac
+
+On an Apple Silicon Mac with Node.js 22.12+ and Google Chrome installed in
+`/Applications`, run:
+
+```sh
+npm ci --ignore-scripts
+npm test
+npm run evaluate
+npm run evaluate:corpus
+npm run build
+node scripts/browser-smoke.mjs
+```
+
+The browser smoke script auto-detects the macOS Chrome app (or use
+`CHROME_PATH="/path/to/Chrome" node scripts/browser-smoke.mjs`). It runs
+headless Chromium desktop/tablet/mobile viewports, keyboard and accessibility
+samples, and an offline deterministic-fallback check. The report with browser,
+CPU architecture, and measured UI results is saved to
+`artifacts/browser-smoke/report.json`, with screenshots in the same folder.
+It uses emulated mobile dimensions, **not a physical iPhone**. Chrome is run
+with WebGPU disabled, so this does not validate WebGPU inference or Safari.
+
+With explicit consent to model/runtime downloads, use
+`RUN_WASM_EVAL=1 WASM_EVAL_PER_CATEGORY=8 node scripts/browser-smoke.mjs`
+for an additional local WASM sample. Results and model transfer appear in
+`artifacts/browser-smoke/wasm-relevance.json`. Record the macOS version,
+device model, and network conditions outside the report when comparing runs.
+The script does not remotely access a Mac or automatically upload local files.
+
+For a repeatable **GitHub-hosted** Apple Silicon check, put
+`[macOS smoke]` in a PR title. This enables the opt-in `macos-15` Chrome
+build/test/browser job and uploads its evidence; it is **not your local Mac**
+and is **not Safari/WebKit**. Test Safari and a physical iPhone separately
+before claiming those platforms are supported.
+
 ### Labeled synthetic retrieval evaluation
 
 Run `npm run evaluate:corpus` to check 106 **synthetic** questions against the fictional sample profile: 66 labeled FAQ paraphrases, 20 unrelated requests, 10 sensitive requests, and 10 ambiguous requests. CI gates deterministic response safety and repeatability and uploads a per-case JSON report as an Actions artifact. The report includes baseline authored-answer rate on paraphrases and false-related rate on unrelated queries.

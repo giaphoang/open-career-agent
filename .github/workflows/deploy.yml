@@ -73,6 +73,32 @@ jobs:
           name: wasm-relevance-${{ github.run_id }}
           path: artifacts/browser-smoke/
           if-no-files-found: ignore
+  macos-smoke:
+    # Opt-in cross-platform smoke on a GitHub-hosted Apple Silicon Mac.
+    # This is NOT a test on the owner's local Mac or in Safari/WebKit.
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.title, '[macOS smoke]')
+    runs-on: macos-15
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run build
+      - name: Apple Silicon Chromium · responsive, keyboard and offline fallback
+        run: node scripts/browser-smoke.mjs
+      - name: Upload macOS browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-browser-smoke-${{ github.run_id }}
+          path: artifacts/browser-smoke/
+          if-no-files-found: ignore
   deploy:
     # Even manual workflow_dispatch runs from feature branches must not deploy.
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

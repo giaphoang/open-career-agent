@@ -9,7 +9,14 @@ import assert from 'node:assert/strict';
 const dist = resolve('dist');
 const output = resolve('artifacts/browser-smoke');
 const mime = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.json': 'application/json', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.woff2': 'font/woff2' };
-const chrome = [process.env.CHROME_PATH, 'google-chrome', 'chromium', 'chromium-browser'].filter(Boolean).find(bin => spawnSync(bin, ['--version']).status === 0);
+// macOS app bundles are normally not on PATH. Honor an explicit override
+// first, then try standard system applications before POSIX executable names.
+const macBrowsers = process.platform === 'darwin'
+  ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium']
+  : [];
+const chrome = [process.env.CHROME_PATH, ...macBrowsers, 'google-chrome', 'chromium', 'chromium-browser']
+  .filter(Boolean).find(bin => spawnSync(bin, ['--version']).status === 0);
 if (!chrome) throw new Error('Chrome or Chromium required for browser smoke tests.');
 const browser = spawnSync(chrome, ['--version'], { encoding: 'utf8' }).stdout.trim();
 const server = createServer(async (req, res) => {
@@ -573,7 +580,7 @@ try {
     await writeFile(join(output, 'wasm-relevance.json'), JSON.stringify(benchmarkReport, null, 2) + '\n');
     console.log('Real WASM evaluation summary: ' + JSON.stringify({ summary: benchmarkReport.summary, modelNetworkTransfer: benchmarkReport.modelNetworkTransfer, performancePanel: benchmarkReport.performancePanel }, null, 2));
   }
-  const report = { browser, method: 'headless Chromium; WebGPU disabled; no local model enabled; network offline after initial load', results, ...(wasmEvaluation ? { wasmEvaluation: { sampleCount: wasmEvaluation.sampledCases, summary: wasmEvaluation.summary } } : {}) };
+  const report = { browser, host: { platform: process.platform, arch: process.arch, cpuModel: cpus()[0]?.model ?? 'unknown', logicalCores: cpus().length, visibleRamGiB: Number((totalmem() / 1024 ** 3).toFixed(1)) }, method: 'headless Chromium; WebGPU disabled; no local model enabled; network offline after initial load', results, ...(wasmEvaluation ? { wasmEvaluation: { sampleCount: wasmEvaluation.sampledCases, summary: wasmEvaluation.summary } } : {}) };
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
   ws.close();
