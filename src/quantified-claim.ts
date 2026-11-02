@@ -28,6 +28,11 @@ const SPELLED_QUANTITY = new RegExp(
 );
 const DIGIT_QUANTITY = /\b\d+(?:,\d{3})*(?:\.\d+)?(?:\s*(?:%|percent|hundred|thousand|million|billion))?(?![\p{L}\p{N}])/giu;
 
+// Standalone small written numbers also assert headcount, team size or scale.
+// Keep an isolated "one" unguarded: "show one example" is a common request,
+// not evidence that the candidate led exactly one project.
+const SMALL_SPELLED_QUANTITY = /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[\s-]+(?:one|two|three|four|five|six|seven|eight|nine))?\b/gi;
+
 function quantities(text: string): Set<number> {
   const found = new Set<number>();
   for (const match of text.matchAll(DIGIT_QUANTITY)) {
@@ -37,13 +42,23 @@ function quantities(text: string): Set<number> {
     const value = Number(parts[1]) * scale;
     if (Number.isFinite(value)) found.add(value);
   }
+  const scaledSpans: Array<[number, number]> = [];
   for (const match of text.matchAll(SPELLED_QUANTITY)) {
+    scaledSpans.push([match.index, match.index + match[0].length]);
     const tokens = match[0]!.toLowerCase().replace(/-/g, ' ').split(/\s+/);
     const suffix = tokens[tokens.length - 1]!;
     const scale = SCALES[suffix] ?? 1;
     const value = tokens.slice(0, scale === 1 && suffix !== 'percent' ? tokens.length : -1)
       .reduce((sum, token) => sum + (WORD_VALUES[token] ?? 0), 0) * scale;
     if (Number.isFinite(value)) found.add(value);
+  }
+  for (const match of text.matchAll(SMALL_SPELLED_QUANTITY)) {
+    // "two million" must count as 2,000,000 only, never as both 2 and
+    // 2,000,000; otherwise equivalent digit forms would be rejected.
+    if (scaledSpans.some(([start, end]) => match.index < end && match.index + match[0].length > start)) continue;
+    const value = match[0].toLowerCase().replace(/-/g, ' ').split(/\s+/)
+      .reduce((sum, word) => sum + (WORD_VALUES[word] ?? 0), 0);
+    if (value > 0) found.add(value);
   }
   return found;
 }
