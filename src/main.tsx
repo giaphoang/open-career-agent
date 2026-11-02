@@ -212,3 +212,14 @@ function App() {
 }
 
 createRoot(document.getElementById('root')!).render(<App/>);
+
+// Precache only the public deterministic app shell. Never persist recruiter input,
+// evidence conversations, or remote model weights in the service worker.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js', {
+      scope: import.meta.env.BASE_URL,
+    }).catch(() => { /* Unsupported or blocked workers retain the online fallback. */ });
+  }, { once: true });
+}
+
