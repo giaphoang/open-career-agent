@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import rawProfile from './data/profile.json';
-import { advanceInterview, answerQuestion, searchCareer, startInterview, validateProfile, type Answer, type Evidence, type InterviewState } from './engine';
+import { advanceInterview, answerQuestion, isFictionalSampleProfile, isPlaceholderEvidenceUrl, searchCareer, startInterview, validateProfile, type Answer, type Evidence, type InterviewState } from './engine';
 import { enableNativeModel, getNativeModelAvailability, type ModelAvailability, type NativeModel } from './browser-llm';
 import { hasUnsupportedAbsolutePremise, hasUnsupportedQuantifiedPremise } from './quantified-claim';
 import type { WasmSearch } from './wasm-search';
@@ -11,13 +11,14 @@ import { CandidateStudio } from './CandidateStudio';
 import './style.css';
 
 const profile = validateProfile(rawProfile);
+const isDemoProfile = isFictionalSampleProfile(profile.candidate);
 const prompts = profile.faq.flatMap(entry => entry.questions.slice(0, 1)).slice(0, 3);
 type Message = { id: number; question?: string; answer: Answer; label?: string };
 type ModelState = ModelAvailability | 'checking' | 'loading' | 'ready' | 'error';
 
 function EvidenceLinks({ evidence }: { evidence: Evidence[] }) {
   if (!evidence.length) return null;
-  return <div className="sources"><span>↗ &nbsp; EVIDENCE</span>{evidence.map(item => <a key={item.id} href={item.url} target="_blank" rel="noreferrer">{item.label} <span aria-hidden="true">↗</span></a>)}</div>;
+  return <div className="sources"><span>↗ &nbsp; EVIDENCE</span>{evidence.map(item => <a key={item.id} href={item.url} target="_blank" rel="noreferrer">{item.label}{isPlaceholderEvidenceUrl(item.url) && ' · DEMO PLACEHOLDER — NOT VERIFIED'} <span aria-hidden="true">↗</span></a>)}</div>;
 }
 function Sources({ ids }: { ids: string[] }) { return <EvidenceLinks evidence={profile.evidence.filter(item => ids.includes(item.id))} />; }
 function Avatar({ speaking = false }: { speaking?: boolean }) {
@@ -162,6 +163,7 @@ function App() {
       <section className="hero shell" id="about">
         <div className="hero-copy">
           <div className="eyebrow"><span className="status-dot"/> MEET THE CANDIDATE <span className="slash">/</span> OPEN TO CONVERSATION</div>
+          {isDemoProfile && <p className="demo-banner" role="note"><strong>Demo profile — fictional candidate.</strong> Example source links are placeholders, not verified evidence. Replace all sample claims before sharing with recruiters.</p>}
           <h1>Meet {profile.candidate.name}.<br/><em>Ask about the work.</em></h1>
           <p className="hero-role">{profile.candidate.headline}</p>
           <p>Hiring for a role? Explore my projects, decisions, and experience. Ask a question and review the public evidence behind the answer.</p>

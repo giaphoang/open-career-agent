@@ -43,6 +43,18 @@ function httpsUrl(value: unknown, path: string): string {
   return url;
 }
 
+/** IANA-reserved example domains are placeholders, never evidence of a career claim. */
+export function isPlaceholderEvidenceUrl(url: string): boolean {
+  try { return /(^|\.)example\.(?:com|org|net)$/.test(new URL(url).hostname.toLowerCase()); }
+  catch { return false; }
+}
+
+/** Keep the one intentionally fictional bundled sample usable as a demo. */
+export function isFictionalSampleProfile(candidate: Profile['candidate']): boolean {
+  return candidate.name === 'Alex Morgan' && candidate.location === 'Remote · Example profile' &&
+    candidate.summary.includes('This is fictional sample content');
+}
+
 /** Parse and validate user-edited JSON before it reaches the UI or engine. */
 export function validateProfile(value: unknown): Profile {
   const root = object(value, 'profile', ['candidate', 'skills', 'projects', 'timeline', 'evidence', 'faq']);
@@ -56,6 +68,9 @@ export function validateProfile(value: unknown): Profile {
     const o = object(item, path, ['id', 'label', 'url']);
     return { id: string(o.id, `${path}.id`), label: string(o.label, `${path}.label`), url: httpsUrl(o.url, `${path}.url`) };
   });
+  if (evidence.some(source => isPlaceholderEvidenceUrl(source.url)) && !isFictionalSampleProfile(candidate)) {
+    throw new Error('Placeholder evidence URLs are allowed only in the fictional sample profile; supply real public HTTPS sources');
+  }
   const skills = array(root.skills, 'skills', (item, path) => {
     const o = object(item, path, ['name', 'category', 'evidenceIds']);
     return { name: string(o.name, `${path}.name`), category: string(o.category, `${path}.category`), evidenceIds: cited(o.evidenceIds, `${path}.evidenceIds`) };

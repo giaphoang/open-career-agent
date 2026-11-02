@@ -27,6 +27,7 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   Element.prototype.scrollIntoView = vi.fn();
   await act(async () => { await import('../src/main'); });
   // Recruiters see the interview first; cloning and model diagnostics come last.
+  expect(document.querySelector('.demo-banner')?.textContent).toMatch(/fictional candidate.*not verified evidence/i);
   const workspace = document.querySelector('.workspace')!;
   expect(workspace.firstElementChild?.classList.contains('chat-card')).toBe(true);
   const developer = document.getElementById('for-developers')!;
@@ -49,6 +50,7 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   fireEvent.click(screen.getByRole('button', { name: new RegExp(firstFaq.questions[0]!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }));
   expect(screen.getByText(firstFaq.answer)).toBeTruthy();
   const firstSource = rawProfile.evidence.find(item => firstFaq.evidenceIds.includes(item.id))!;
+  expect(screen.getAllByRole('link', { name: /DEMO PLACEHOLDER — NOT VERIFIED/ })).not.toHaveLength(0);
   expect(screen.getAllByRole('link', { name: new RegExp(firstSource.label) }).some(link => link.getAttribute('href') === firstSource.url)).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
   expect(screen.queryByText(firstFaq.answer)).toBeNull();
