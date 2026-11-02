@@ -618,24 +618,110 @@ try {
   const fixtureProfile = JSON.parse(await readFile('src/data/profile.json', 'utf8'));
   const fixtureAnswer = { kind: 'answer', text: fixtureProfile.projects[0].summary, factIds: ['projects.0'] };
   const fixtureScript = await call('Page.addScriptToEvaluateOnNewDocument', { source: `
+    window.__nativeCalls = { availability: 0, create: 0 };
     Object.defineProperty(globalThis, 'LanguageModel', { configurable: true, value: {
-      availability: async () => 'available', create: async () => ({
-        clone: async () => ({ prompt: () => new Promise((resolve, reject) => {
-          window.__nativeFinish = () => resolve(${JSON.stringify(JSON.stringify(fixtureAnswer))});
-          window.__nativeFail = () => reject(new Error('Synthetic inference failure'));
-        }), destroy() {} }), destroy() {}
+      availability: async () => {
+        window.__nativeCalls.availability++;
+        return new URL(location.href).searchParams.get('nativeFixture') ?? 'available';
+      },
+      create: options => new Promise(resolve => {
+        window.__nativeCalls.create++;
+        const monitor = new EventTarget();
+        options.monitor?.(monitor);
+        window.__nativeSetupProgress = loaded => {
+          const event = new Event('downloadprogress');
+          Object.defineProperty(event, 'loaded', { value: loaded });
+          monitor.dispatchEvent(event);
+        };
+        window.__nativeSetupReady = () => resolve({
+          clone: async () => ({ prompt: () => new Promise((resolve, reject) => {
+            window.__nativeFinish = () => resolve(${JSON.stringify(JSON.stringify(fixtureAnswer))});
+            window.__nativeFail = () => reject(new Error('Synthetic inference failure'));
+          }), destroy() {} }), destroy() {}
+        });
       })
     }});
   ` });
   const nativeChatFixture = { method: 'Mocked Prompt API; real app and adapter; no native model downloaded or inference benchmark', results: [] };
+  async function nativeControls(viewport) {
+    const controls = await evaluate(`(() => {
+      const panel = document.querySelector('.chat-model');
+      if (!panel) return null;
+      panel.scrollIntoView({behavior:'instant',block:'center'});
+      const box = panel.getBoundingClientRect();
+      const statuses = document.querySelectorAll('.model-content .model-status');
+      return {
+        inChat: document.querySelector('.chat-card').contains(panel),
+        label: panel.getAttribute('aria-label'),
+        visible: box.width > 0 && box.height > 0 && !panel.closest('details:not([open])'),
+        developerCollapsed: !document.querySelector('.developer-tools').open,
+        wasmStatusOrder: statuses[0] === panel.querySelector('.model-status') &&
+          statuses[1] === document.querySelector('.developer-tools .model-content .model-status'),
+        width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+        status: panel.querySelector('.model-status')?.textContent,
+        progress: panel.querySelector('progress') ? {
+          value: panel.querySelector('progress').getAttribute('value'),
+          max: panel.querySelector('progress').getAttribute('max'),
+          label: panel.querySelector('progress').getAttribute('aria-label')
+        } : null,
+        buttons: [...panel.querySelectorAll('button')].map(button => {
+          const rect = button.getBoundingClientRect();
+          return {name:button.textContent.trim(),disabled:button.disabled,width:rect.width,height:rect.height};
+        }),
+        calls: {...window.__nativeCalls}
+      };
+    })()`);
+    assert(controls?.inChat && controls.visible && controls.developerCollapsed,
+      'Chrome controls must be visible directly in chat with developer settings closed on ' + viewport);
+    assert.equal(controls.label, 'Chrome LLM API controls');
+    assert(controls.wasmStatusOrder, 'Real WASM benchmark must retain its second model-status selector.');
+    assert(controls.scrollWidth <= controls.width + 2, 'Model controls overflow on ' + viewport);
+    assert(controls.buttons.length > 0 && controls.buttons.every(button => button.width >= 44 && button.height >= 44),
+      'Model controls need 44px targets on ' + viewport + ': ' + JSON.stringify(controls.buttons));
+    return controls;
+  }
   for (const v of [{name:'desktop',width:1280,height:900,mobile:false},{name:'mobile',width:390,height:844,mobile:true}]) {
     await call('Emulation.setDeviceMetricsOverride', {width:v.width,height:v.height,mobile:v.mobile,deviceScaleFactor:1});
-    await call('Page.navigate', {url:'http://127.0.0.1:'+server.address().port+'/'});
-    await until(()=>evaluate('document.readyState === "complete" && !!document.querySelector("#question")'), 'Native fixture page missing');
-    await evaluate('document.querySelector(".developer-tools").open=true; document.querySelector(".model-panel").open=true; true');
-    await until(()=>evaluate('[...document.querySelectorAll("button")].some(b=>b.textContent==="Enable on-device model"&&!b.disabled)'), 'Native fixture enable missing');
-    await evaluate('[...document.querySelectorAll("button")].find(b=>b.textContent==="Enable on-device model").click(); true');
+    const availability = [];
+    for (const [state, name] of [['available','Enable on-device model'], ['downloading','Continue model setup'], ['downloadable','Download and enable model']]) {
+      await call('Page.navigate', {url:'http://127.0.0.1:'+server.address().port+'/?nativeFixture='+state});
+      await until(()=>evaluate('document.readyState === "complete" && !!document.querySelector("#question")'), 'Native fixture page missing');
+      await until(()=>evaluate(`[...document.querySelectorAll('.chat-model button')].some(button=>button.textContent.trim()===${JSON.stringify(name)}&&!button.disabled)`), 'Native fixture control missing: '+name);
+      const controls = await nativeControls(v.name);
+      assert(controls.calls.availability > 0 && controls.calls.create === 0,
+        'Availability must be checked automatically without creating a model.');
+      assert.equal(await evaluate(`[...document.querySelectorAll('button')].filter(button=>button.textContent.trim()===${JSON.stringify(name)}).length`), 1,
+        'Chrome model action must have one owner.');
+      if (state === 'downloading') assert.equal(controls.progress?.value, null, 'Browser-owned download progress must stay indeterminate.');
+      availability.push({state, ...controls});
+    }
+    await writeFile(join(output,'native-chat-'+v.name+'-before-enable.png'),Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    await evaluate('[...document.querySelectorAll(".chat-model button")].find(button=>button.textContent.trim()==="Download and enable model").click(); true');
+    await until(()=>evaluate('typeof window.__nativeSetupReady === "function"'), 'Native setup did not start');
+    const starting = await nativeControls(v.name);
+    assert(starting.buttons.some(button=>button.disabled&&button.name.startsWith('Starting')));
+    assert(starting.buttons.some(button=>!button.disabled&&button.name==='Cancel loading'));
+    assert.equal(starting.progress?.value, null);
+    assert.equal(starting.calls.create, 1);
+    await evaluate('window.__nativeSetupProgress(0.22); true');
+    await until(()=>evaluate('document.querySelector(".chat-model progress")?.value===0.22'), 'Native download progress missing');
+    const downloading = await nativeControls(v.name);
+    assert.equal(downloading.progress?.label, 'Chrome LLM API model download');
+    assert.equal(downloading.progress?.max, '1');
+    assert(downloading.buttons.some(button=>button.disabled&&button.name.includes('Downloading')));
+    assert(downloading.status.includes('22%'));
+    await writeFile(join(output,'native-chat-'+v.name+'-loading.png'),Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    await evaluate('window.__nativeSetupProgress(1); true');
+    await until(()=>evaluate('[...document.querySelectorAll(".chat-model button")].some(button=>button.disabled&&button.textContent.includes("Preparing"))'), 'Completed download must wait for model preparation');
+    const preparing = await nativeControls(v.name);
+    assert.equal(preparing.progress?.value, '1');
+    assert(preparing.buttons.some(button=>!button.disabled&&button.name==='Cancel loading'));
+    await evaluate('window.__nativeSetupReady(); true');
     await until(()=>evaluate('document.querySelector(".live-label").textContent.includes("CHROME LLM · READY")'), 'Native fixture not ready');
+    const ready = await nativeControls(v.name);
+    assert(ready.buttons.some(button=>!button.disabled&&button.name==='Turn off model'));
+    assert.equal(ready.progress, null);
+    await writeFile(join(output,'native-chat-'+v.name+'-ready.png'),Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'));
     await evaluate('document.querySelector("#question").focus(); true');
     await call('Input.insertText', {text:fixtureProfile.faq[0].questions[0]}); await pressEnter();
     await until(()=>evaluate('!!window.__nativeFinish && document.querySelector(".model-searching")?.textContent.includes("Chrome LLM API is drafting")'), 'Exact FAQ did not reach native adapter');
@@ -651,7 +737,7 @@ try {
     await until(()=>evaluate('typeof window.__nativeFail === "function"'), 'Follow-up did not reach native adapter');
     await evaluate('window.__nativeFail(); true');
     await until(()=>evaluate('document.querySelector(".chat-body").textContent.includes("Chrome LLM API could not reply. Showing the instant profile answer.")'), 'Native error silently swallowed');
-    nativeChatFixture.results.push({viewport:v.name,exactFaqUsesNative:true,draft,visibleErrorFallback:true});
+    nativeChatFixture.results.push({viewport:v.name,availability,starting,downloading,preparing,ready,exactFaqUsesNative:true,draft,visibleErrorFallback:true});
   }
   await call('Page.removeScriptToEvaluateOnNewDocument',{identifier:fixtureScript.identifier});
 

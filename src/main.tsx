@@ -47,14 +47,23 @@ function App() {
   const provider = useRef<'native' | 'wasm' | null>(null);
   const lifecycle = useRef(new AbortController());
   const startup = useRef<AbortController | null>(null);
+  const availabilityCheck = useRef(0);
   const pending = useRef<AbortController | null>(null);
   const speechTimer = useRef<number | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    let mounted = true;
-    void getNativeModelAvailability().then(status => { if (mounted) setModelState(status); });
-    return () => { mounted = false; lifecycle.current.abort(); startup.current?.abort(); pending.current?.abort(); provider.current = null; model.current?.dispose(); window.clearTimeout(speechTimer.current); };
+    const check = () => { void checkModelAvailability(); };
+    const visible = () => { if (document.visibilityState === 'visible') check(); };
+    check(); window.addEventListener('focus', check); document.addEventListener('visibilitychange', visible);
+    return () => { window.removeEventListener('focus', check); document.removeEventListener('visibilitychange', visible); lifecycle.current.abort(); startup.current?.abort(); pending.current?.abort(); provider.current = null; model.current?.dispose(); window.clearTimeout(speechTimer.current); };
   }, []);
+  async function checkModelAvailability() {
+    if (startup.current || provider.current === 'native' || lifecycle.current.signal.aborted) return;
+    const request = ++availabilityCheck.current;
+    const status = await getNativeModelAvailability();
+    // Starting a native session invalidates any earlier capability check.
+    if (request === availabilityCheck.current && !lifecycle.current.signal.aborted) setModelState(status);
+  }
   function animate() { setSpeaking(true); window.clearTimeout(speechTimer.current); speechTimer.current = window.setTimeout(() => setSpeaking(false), 1200); }
   function add(answer: Answer, question?: string, label?: string, pending = false) {
     const id = ++sequence.current;
@@ -135,7 +144,9 @@ function App() {
   function clearChat() { cancelReply(); setMessages([]); setDecisionTimes([]); setInterview(null); setInput(''); inputRef.current?.focus(); }
   function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); ask(input); }
   async function toggleModel() {
-    if (provider.current === 'native' && model.current) { cancelReply(); provider.current = null; model.current.dispose(); model.current = null; setModelState(await getNativeModelAvailability()); return; }
+    if (startup.current || provider.current === 'wasm') return;
+    ++availabilityCheck.current;
+    if (provider.current === 'native' && model.current) { cancelReply(); provider.current = null; model.current.dispose(); model.current = null; setModelState('checking'); void checkModelAvailability(); return; }
     setModelState('loading'); setProgress(null);
     const controller = new AbortController(); startup.current = controller;
     try {
@@ -146,6 +157,7 @@ function App() {
     finally { if (startup.current === controller) startup.current = null; }
   }
   async function toggleWasm() {
+    if (startup.current || provider.current === 'native') return;
     if (provider.current === 'wasm' && model.current) {
       const active = model.current; provider.current = null; pending.current?.abort(); setModelSearching(false); active.dispose(); model.current = null; setWasmState('off'); return;
     }
@@ -173,11 +185,12 @@ function App() {
   }
   function cancelLoading() {
     startup.current?.abort(); startup.current = null;
-    if (modelState === 'loading') void getNativeModelAvailability().then(setModelState);
+    if (modelState === 'loading') { setModelState('checking'); void checkModelAvailability(); }
     if (wasmState === 'loading') setWasmState('off');
   }
   const modelCanEnable = modelState === 'available' || modelState === 'downloadable' || modelState === 'downloading' || modelState === 'error';
   const modelLabel: Record<ModelState, string> = { checking: 'Checking Chrome LLM API support…', unsupported: 'Chrome LLM API is not supported in this browser', unavailable: 'Chrome LLM API is unavailable on this device', available: 'Chrome model is downloaded and ready to enable', downloadable: 'Chrome needs to download Gemini Nano before first use', downloading: 'Chrome is downloading its model', loading: progress === null ? 'Starting Chrome LLM API…' : progress < 1 ? `Chrome is downloading Gemini Nano · ${Math.round(progress * 100)}%` : 'Download complete · Chrome is preparing the model…', ready: 'Chrome LLM API enabled for conversation using the public profile', error: 'Could not start Chrome LLM API; instant chat still works' };
+  const modelAction: Record<ModelState, string> = { checking: 'Checking model…', unsupported: 'Check again', unavailable: 'Check again', available: 'Enable on-device model', downloadable: 'Download and enable model', downloading: 'Continue model setup', loading: progress === null ? 'Starting model…' : progress < 1 ? 'Downloading model…' : 'Preparing model…', ready: 'Turn off model', error: 'Try model again' };
   const modelSummary = modelState === 'ready' || wasmState === 'ready' ? 'ON'
     : modelState === 'loading' ? progress === null ? 'LOADING' : progress < 1 ? `DOWNLOADING ${Math.round(progress * 100)}%` : 'STARTING'
     : wasmState === 'loading' ? 'LOADING' : modelState === 'downloading' ? 'DOWNLOADING' : 'OFF';
@@ -203,6 +216,17 @@ function App() {
       </section>
       <section className="workspace shell" id="conversation" aria-label="Career conversation">
         <div className="chat-card"><div className="chat-header"><div><div className="chat-title"><span className="chat-symbol">✳</span> Interview the experience <span className="live-label" role="status"><span/> {modelState === 'ready' ? modelSearching ? 'CHROME LLM · DRAFTING' : 'CHROME LLM · READY' : 'READY TO CHAT'}</span></div><p>{modelState === 'ready' ? 'Chrome LLM is on. Ask naturally or follow up on a reply. AI drafts use this public profile; check the sources.' : 'Ask about projects, responsibilities, decisions, or what this candidate could bring to your team.'}</p></div><button className="clear-chat" type="button" onClick={clearChat} disabled={!messages.length}>Clear chat</button></div>
+          <section className="chat-model model-content" aria-label="Chrome LLM API controls">
+            <div className="chat-model-heading"><div><strong>Chrome LLM API (Gemini Nano)</strong><p className="model-status" role="status">{modelLabel[modelState]}</p></div><div className="chat-model-actions">
+              {modelState === 'unsupported' || modelState === 'unavailable' ? <button type="button" onClick={() => { setModelState('checking'); void checkModelAvailability(); }} disabled={wasmState === 'loading'}>Check again</button> : <button type="button" onClick={() => void toggleModel()} disabled={wasmState === 'ready' || wasmState === 'loading' || (!modelCanEnable && modelState !== 'ready')}>{modelAction[modelState]}</button>}
+              {modelState === 'loading' && <button type="button" onClick={cancelLoading}>Cancel loading</button>}
+            </div></div>
+            {(modelState === 'loading' || modelState === 'downloading') && <progress aria-label="Chrome LLM API model download" max={1} value={modelState === 'loading' && progress !== null ? progress : undefined}/>}
+            <p>Optional AI replies on this device. Chrome may need a large model download; Chrome controls its size. Instant chat stays available.</p>
+            {(wasmState === 'ready' || wasmState === 'loading') && <p>{wasmState === 'loading' ? 'Cancel WASM loading' : 'Turn off WASM search'} in <a href="#for-developers">optional settings</a> to use Chrome LLM.</p>}
+            {modelState === 'loading' && <p>Cancel loading cancels this page's request. Chrome may continue a shared model download.</p>}
+            <details className="chat-model-details"><summary>About on-device replies</summary><p>Uses Chrome's built-in Prompt API to draft replies using this public profile and the last three conversation turns. Drafts can be wrong; citations are not independent verification. Chat stays in this tab and is not saved by this app. Clear chat to reset its context. Chrome manages the model and download size; this site cannot select a smaller version.</p><p>Open <code>chrome://on-device-internals</code> in Chrome for model details. <a href="https://developer.chrome.com/docs/ai/prompt-api" target="_blank" rel="noreferrer">Chrome LLM API guide ↗</a></p></details>
+          </section>
           <div className="chat-body" role="log" aria-label="Career interview conversation" aria-live="polite" aria-relevant="additions text"><div className="message agent-message"><Avatar/><div><div className="message-name">{profile.candidate.name}’s career agent <span>· &nbsp; just now</span></div><div className="bubble">Welcome. I can walk you through {profile.candidate.name}’s public projects, responsibilities, and engineering decisions. You can also tell me about the position you are hiring for.<br/><br/>What would you like to explore?</div></div></div>
           {messages.map((message, index) => <div key={message.id} className="exchange">{message.question && <div className="user-bubble">{message.question}</div>}<div className="message agent-message"><Avatar speaking={speaking && index === messages.length - 1}/><div><div className="message-name">Career agent <span>· &nbsp; {message.label ?? 'based on the public profile'}</span></div><div className="bubble">{message.pending ? <p className="model-searching" role="status">Chrome LLM API is drafting a reply…</p> : <>{message.answer.text}{message.answer.followUp && <p className="follow-up">{message.answer.followUp}</p>}<EvidenceLinks evidence={message.answer.evidence}/>{message.modelStatus && <p className="model-reply-status">{message.modelStatus}</p>}</>}</div></div></div></div>)}
           {messages.length === 0 && <div className="suggestions"><span>NOT SURE WHERE TO START?</span><div>{prompts.map(prompt => <button type="button" key={prompt} onClick={() => ask(prompt)}>{prompt} <span>↗</span></button>)}</div></div>}{modelSearching && provider.current !== 'native' && <p className="model-searching" role="status">Looking for related public information on this device…</p>}</div>
@@ -224,7 +248,7 @@ function App() {
             <section className="studio-section" aria-label="Make your own portfolio"><div className="studio-callout"><div><strong>Making your own portfolio?</strong><p>Turn your public career details into a starter profile.</p></div><button type="button" onClick={() => setShowStudio(value => !value)} aria-expanded={showStudio} aria-controls="studio-container">{showStudio ? 'Close profile builder' : 'Create a profile'} ↗</button></div><div id="studio-container">{showStudio && <CandidateStudio onClose={() => setShowStudio(false)}/>}</div></section>
             <div className="developer-settings">
               <h3>Optional browser inference</h3>
-              <details className="model-panel"><summary>Optional on-device AI <span>{modelSummary} &nbsp; +</span></summary><div className="model-content"><p>Instant chat works without a model. Chrome LLM can draft conversational replies from the public profile. WASM search suggests related prewritten answers. Both are experimental; check the sources. Choose one option at a time.</p><strong>Chrome LLM API (Gemini Nano)</strong><p className="model-status" role="status">{modelLabel[modelState]}</p>{(modelState === 'loading' || modelState === 'downloading') && <progress aria-label="Chrome LLM API model download" max={1} value={modelState === 'loading' && progress !== null ? progress : undefined}/>}<button type="button" onClick={() => void toggleModel()} disabled={wasmState === 'ready' || wasmState === 'loading' || (!modelCanEnable && modelState !== 'ready')}>{modelState === 'ready' ? 'Turn off model' : 'Enable on-device model'}</button><p>Uses Chrome's built-in Prompt API to draft replies using this public profile and the last three conversation turns. Drafts can be wrong; citations are not independent verification. Chat stays in this tab and is not saved by this app. Clear chat to reset its context. Chrome manages the model and download size; this site cannot select a smaller version. Instant chat stays available while the model loads.</p><p>Open <code>chrome://on-device-internals</code> in Chrome for model details. <a href="https://developer.chrome.com/docs/ai/prompt-api" target="_blank" rel="noreferrer">Chrome LLM API guide ↗</a></p><strong>WASM semantic search</strong><p className="model-status" role="status">{wasmState === 'loading' ? `Loading model${progress === null ? '…' : ` · ${Math.round(progress * 100)}%`}` : wasmState === 'ready' ? 'Enabled on this device' : wasmState === 'error' ? 'Could not start; instant chat still works' : 'Off'}</p><button type="button" onClick={() => void toggleWasm()} disabled={modelState === 'ready' || modelState === 'loading' || wasmState === 'loading'}>{wasmState === 'ready' ? 'Turn off WASM search' : 'Enable WASM search'}</button><p>Downloads a model (about 23 MB) from Hugging Face plus the WASM runtime from this site or jsDelivr after you enable it. Questions are processed locally in a worker and are not sent to those services by this app.</p>{(modelState === 'loading' || wasmState === 'loading') && <button type="button" onClick={cancelLoading}>Cancel loading</button>}{modelState === 'loading' && <p>Cancel loading cancels this page's request. Chrome may continue a shared model download.</p>}</div></details>
+              <details className="model-panel"><summary>Optional on-device AI <span>{modelSummary} &nbsp; +</span></summary><div className="model-content"><p>Chrome LLM replies are controlled in the <a href="#conversation">interview chat above</a>. WASM search suggests related prewritten answers. Both are experimental; check the sources. Choose one option at a time.</p><strong>WASM semantic search</strong><p className="model-status" role="status">{wasmState === 'loading' ? `Loading model${progress === null ? '…' : ` · ${Math.round(progress * 100)}%`}` : wasmState === 'ready' ? 'Enabled on this device' : wasmState === 'error' ? 'Could not start; instant chat still works' : 'Off'}</p><button type="button" onClick={() => void toggleWasm()} disabled={modelState === 'ready' || modelState === 'loading' || wasmState === 'loading'}>{wasmState === 'ready' ? 'Turn off WASM search' : 'Enable WASM search'}</button><p>Downloads a model (about 23 MB) from Hugging Face plus the WASM runtime from this site or jsDelivr after you enable it. Questions are processed locally in a worker and are not sent to those services by this app.</p>{wasmState === 'loading' && <button type="button" onClick={cancelLoading}>Cancel loading</button>}</div></details>
               <h3>Local performance diagnostics</h3>
               <PerformancePanel decisionTimes={decisionTimes} wasmStartupMs={wasmStartupMs} wasmSearchTimes={wasmSearchTimes} wasmFaqCacheMissMs={wasmFaqCacheMissMs} wasmFaqCacheHitTimes={wasmFaqCacheHitTimes} />
             </div>
