@@ -52,7 +52,7 @@
     {"id":"pipeline-role", "questions":["What was your role on the Event Pipeline?"], "answer":"Alex is listed as software engineer for the sample Event Pipeline.", "evidenceIds":["events"], "followUp":"What engineering responsibilities are you hiring for?"},
     {"id":"dashboard-role", "questions":["What was your role on the Operations Dashboard?"], "answer":"Alex is listed as frontend engineer for the sample Operations Dashboard.", "evidenceIds":["dashboard"], "followUp":"How is frontend ownership organized on your team?"},
     {"id":"messaging", "questions":["Do you have messaging experience?"], "answer":"The sample Event Pipeline lists messaging in its stack and explores retries and idempotency.", "evidenceIds":["events"], "followUp":"What messaging technology does your team use?"},
-    {"id":"tradeoffs", "questions":["What trade-offs have you documented?","Where can I find documented architecture decisions and design trade-offs?"], "answer":"The sample Event Pipeline explores retries, idempotency, and failure recovery; the case study is the place to inspect its design details.", "evidenceIds":["events"], "followUp":"Which trade-offs would you like to discuss?"},
+    {"id":"tradeoffs", "questions":["What trade-offs have you documented?"], "answer":"The sample Event Pipeline explores retries, idempotency, and failure recovery; the case study is the place to inspect its design details.", "evidenceIds":["events"], "followUp":"Which trade-offs would you like to discuss?"},
     {"id":"failure", "questions":["How have you handled failure recovery?"], "answer":"The sample Event Pipeline is a prototype that explores failure recovery.", "evidenceIds":["events"], "followUp":"What recovery objectives does your system have?"}
   ]
 }
