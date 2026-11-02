@@ -43,12 +43,17 @@ function httpsUrl(value: unknown, path: string): string {
   return url;
 }
 
-/** RFC 6761 documentation/test hosts cannot substantiate public career claims. */
+/** Reserved DNS names and direct IP hosts cannot substantiate public career claims. */
 export function isPlaceholderEvidenceUrl(url: string): boolean {
   try {
     // DNS hostnames can end in a root dot; this must not bypass the guard.
     const host = new URL(url).hostname.toLowerCase().replace(/\.+$/, '');
-    return /(^|\.)example\.(?:com|org|net)$/.test(host) ||
+    // IP-literal URLs (including IPv4 forms normalized by URL, and bracketed
+    // IPv6) often point to local/private hosts and lack a stable public identity.
+    // Require a public HTTPS hostname for evidence rather than guessing which
+    // direct IPs are safe or independently verifiable.
+    const ipLiteral = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host) || (host.startsWith('[') && host.endsWith(']'));
+    return ipLiteral || /(^|\.)example\.(?:com|org|net)$/.test(host) ||
       /(^|\.)(?:example|test|invalid|localhost)$/.test(host);
   } catch { return false; }
 }
@@ -73,7 +78,7 @@ export function validateProfile(value: unknown): Profile {
     return { id: string(o.id, `${path}.id`), label: string(o.label, `${path}.label`), url: httpsUrl(o.url, `${path}.url`) };
   });
   if (evidence.some(source => isPlaceholderEvidenceUrl(source.url)) && !isFictionalSampleProfile(candidate)) {
-    throw new Error('Placeholder evidence URLs are allowed only in the fictional sample profile; supply real public HTTPS sources');
+    throw new Error('Placeholder or IP-address evidence URLs are allowed only in the fictional sample profile; supply real public HTTPS domain sources');
   }
   const skills = array(root.skills, 'skills', (item, path) => {
     const o = object(item, path, ['name', 'category', 'evidenceIds']);

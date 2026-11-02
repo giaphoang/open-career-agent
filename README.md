@@ -146,7 +146,7 @@ The project's performance, accessibility and factual-grounding targets are goals
 
 ### Demo evidence integrity
 
-The bundled **Alex Morgan** profile is deliberately fictional and uses reserved `example.com` links; the recruiter page identifies this as a demo and marks its source links as **not verified**. These links are not proof of work. When replacing the sample with a real candidate, the profile validator rejects reserved documentation/test hosts (`example.com`, `.org`, `.net`, `.example`, `.test`, `.invalid`, `.localhost`, including subdomains and trailing root dots). Candidate Studio also blocks those placeholders before export. Use real, public HTTPS evidence links and inspect whether each source supports its linked claim; the application cannot automatically establish the truth of external pages.
+The bundled **Alex Morgan** profile is deliberately fictional and uses reserved `example.com` links; the recruiter page identifies this as a demo and marks its source links as **not verified**. These links are not proof of work. When replacing the sample with a real candidate, the profile validator rejects reserved documentation/test hosts (`example.com`, `.org`, `.net`, `.example`, `.test`, `.invalid`, `.localhost`, including subdomains and trailing root dots). Candidate Studio blocks the same hosts before export. Direct IPv4/IPv6 URL hosts are also refused, including loopback and IP-encoded aliases (for example `https://127.0.0.1` or `https://[::1]`); use a public HTTPS domain instead. Use real, public HTTPS evidence links and inspect whether each source supports its linked claim; the application cannot automatically establish the truth of external pages.
 
 ## License
 

@@ -58,14 +58,14 @@ describe('public profile validation', () => {
   it('allows reserved example URLs only for the explicitly fictional demo', () => {
     const renamed = structuredClone(profileData);
     renamed.candidate.name = 'Actual Candidate';
-    expect(() => validateProfile(renamed)).toThrow('Placeholder evidence URLs');
+    expect(() => validateProfile(renamed)).toThrow(/Placeholder or IP-address evidence URLs/);
     const withRealUrls = structuredClone(renamed);
     withRealUrls.evidence = withRealUrls.evidence.map((source, index) =>
       ({ ...source, url: `https://github.com/tuannx/open-career-agent/tree/main/docs#source-${index}` }));
     expect(() => validateProfile(withRealUrls)).not.toThrow();
     const subdomain = structuredClone(withRealUrls);
     subdomain.evidence[0]!.url = 'https://docs.example.org/sample';
-    expect(() => validateProfile(subdomain)).toThrow('Placeholder evidence URLs');
+    expect(() => validateProfile(subdomain)).toThrow(/Placeholder or IP-address evidence URLs/);
   });
 
   it('rejects reserved documentation, test and local hosts, including root-dot variants', () => {
@@ -74,13 +74,16 @@ describe('public profile validation', () => {
       'https://example./doc', 'https://docs.example.test/work',
       'https://service.invalid/work', 'https://localhost/work',
       'https://project.dev.localhost/work',
+      'https://127.0.0.1/work', 'https://192.168.1.10/work',
+      'https://[::1]/work', 'https://2130706433/work',
+      'https://8.8.8.8/work',
     ];
     for (const url of reserved) {
       expect(isPlaceholderEvidenceUrl(url), url).toBe(true);
       const candidate = structuredClone(profileData);
       candidate.candidate.name = 'Real Candidate';
       candidate.evidence[0]!.url = url;
-      expect(() => validateProfile(candidate), url).toThrow('Placeholder evidence URLs');
+      expect(() => validateProfile(candidate), url).toThrow(/Placeholder or IP-address evidence URLs/);
     }
     for (const url of ['https://github.com/tuannx/open-career-agent', 'https://notexample.org/work', 'https://example.com.evil.org/work', 'https://test.dev/work']) {
       expect(isPlaceholderEvidenceUrl(url), url).toBe(false);
