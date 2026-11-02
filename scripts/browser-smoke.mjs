@@ -141,6 +141,14 @@ try {
         developerTop: dev ? Math.round(dev.getBoundingClientRect().top + scrollY) : -1,
         developerHeight: dev?.getBoundingClientRect().height ?? 0,
         heading: document.querySelector('h1')?.textContent ?? '',
+        demoDisclosure: (() => {
+          const notice = document.querySelector('.demo-banner');
+          if (!notice) return false;
+          const rect = notice.getBoundingClientRect();
+          return notice.textContent?.includes('fictional candidate') &&
+            notice.textContent?.includes('not verified evidence') &&
+            rect.top >= 0 && rect.top < innerHeight && rect.width > 0 && rect.height > 0;
+        })(),
         developerLast: !!dev && !!exp && !!(exp.compareDocumentPosition(dev) & Node.DOCUMENT_POSITION_FOLLOWING),
         developerCollapsed: !document.querySelector('.developer-tools')?.open,
         chatFirst: !!chat && !!profile && chat.getBoundingClientRect().top <= profile.getBoundingClientRect().top + 1,
@@ -153,6 +161,7 @@ try {
       };
     })()`);
     assert.match(layout.heading, /Ask about the work/i);
+    assert(layout.demoDisclosure, 'Fictional evidence must be disclosed in the first viewport on ' + v.name);
     assert(layout.developerLast && layout.developerCollapsed && layout.formLabeled && layout.sendLabeled);
     assert(layout.developerHeight > 0 && layout.developerTop < layout.scrollHeight, 'Developer footer must actually be visible in page layout.');
     assert(layout.width <= v.width + 2 && layout.scrollWidth <= layout.width + 2, v.name + ' has horizontal overflow or incorrect viewport scale.');
@@ -166,7 +175,8 @@ try {
     // Measure readable text in the live Chromium layout at each viewport.
     // Included in artifacts/browser-smoke/report.json for regression evidence.
     const readabilitySpecs = [
-      ['.hero-copy > p:not(.hero-role)', 14],
+      ['.hero-copy > p:not(.hero-role):not(.demo-banner)', 14],
+      ['.hero-copy > .demo-banner', 14],
       ['.hero-meta', 12],
       ['.chat-header p', 14],
       ['.chat-body .bubble', 14],
@@ -261,6 +271,8 @@ try {
     await call('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
     await evaluate('document.querySelector(".hero-example").click(); true');
     await until(() => evaluate('document.querySelectorAll(".exchange .sources a").length > 0'), 'Offline evidence-backed answer failed on ' + v.name);
+    assert(await evaluate('([...document.querySelectorAll(".exchange .sources a")].every(link => link.textContent?.includes("DEMO PLACEHOLDER — NOT VERIFIED")))'),
+      'Placeholder source links must be clearly marked non-verifying on ' + v.name);
     readability.push(assertReadableText(
       await evaluate("window.__careerTextSample('.exchange .sources a', 12)"), v.name));
     // Actual keyboard event path, not a JS .click(): activate the main recruiter
