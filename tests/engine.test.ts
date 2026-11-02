@@ -55,6 +55,19 @@ describe('public profile validation', () => {
   it('accepts the configured public profile', () => {
     expect(() => validateProfile(configuredProfile)).not.toThrow();
   });
+  it('allows reserved example URLs only for the explicitly fictional demo', () => {
+    const renamed = structuredClone(profileData);
+    renamed.candidate.name = 'Actual Candidate';
+    expect(() => validateProfile(renamed)).toThrow('Placeholder evidence URLs');
+    const withRealUrls = structuredClone(renamed);
+    withRealUrls.evidence = withRealUrls.evidence.map((source, index) =>
+      ({ ...source, url: `https://github.com/tuannx/open-career-agent/tree/main/docs#source-${index}` }));
+    expect(() => validateProfile(withRealUrls)).not.toThrow();
+    const subdomain = structuredClone(withRealUrls);
+    subdomain.evidence[0]!.url = 'https://docs.example.org/sample';
+    expect(() => validateProfile(subdomain)).toThrow('Placeholder evidence URLs');
+  });
+
   it('accepts a clean public profile', () => {
     expect(profile.candidate.name).toBe('Alex Morgan');
     expect(profile.evidence.length).toBeGreaterThan(0);
