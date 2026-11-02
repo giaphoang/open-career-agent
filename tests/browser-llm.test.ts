@@ -18,25 +18,30 @@ describe('browser Prompt API', () => {
     expect(await getNativeModelAvailability()).toBe('unsupported');
   });
 
-  it('returns natural public-profile text with original citations and destroys the isolated session', async () => {
+  it('renders only the authored project entry with its original citations and destroys the isolated session', async () => {
     const clone = { prompt: vi.fn(async () => JSON.stringify({ kind: 'answer', text: 'Alex worked on the Order Service, a Java service with an operational runbook.', factIds: ['projects.0'] })), destroy: vi.fn() };
     const session = { clone: vi.fn(async () => clone), destroy: vi.fn() };
     vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
     const model = await enableNativeModel({ signal: new AbortController().signal });
     const result = await model.reply('Tell me about the Order Service.', profile, [], new AbortController().signal);
-    expect(result).toMatchObject({ kind: 'answer', answer: { kind: 'answer', text: 'Alex worked on the Order Service, a Java service with an operational runbook.', evidence: [profile.evidence[0]] } });
+    expect(result).toMatchObject({ kind: 'answer', answer: { kind: 'answer', evidence: [profile.evidence[0]] } });
+    if (result.kind === 'answer') {
+      expect(result.answer.text).toContain(profile.projects[0]!.summary);
+      expect(result.answer.text).toContain('Related public profile statements (not verification');
+      expect(result.answer.text).not.toContain('Alex worked on the Order Service, a Java service');
+    }
     if (result.kind === 'answer') expect(result.elapsedMs).toBeGreaterThanOrEqual(0);
     expect(clone.destroy).toHaveBeenCalledOnce();
     model.dispose();
     expect(session.destroy).toHaveBeenCalledOnce();
   });
 
-  it('allows a natural greeting grounded in the candidate name without inventing an external citation', async () => {
+  it('uses a fixed friendly greeting rather than unverified model prose', async () => {
     const clone = { prompt: vi.fn(async () => greeting), destroy: vi.fn() };
     const session = { clone: vi.fn(async () => clone), destroy: vi.fn() };
     vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
     const model = await enableNativeModel({ signal: new AbortController().signal });
-    expect(await model.reply('Hello!', profile, [], new AbortController().signal)).toMatchObject({ kind: 'answer', answer: { evidence: [], text: 'Hello! Ask me about Alex Morgan’s public work.' } });
+    expect(await model.reply('Hello!', profile, [], new AbortController().signal)).toMatchObject({ kind: 'answer', answer: { evidence: [], text: 'Hello! Ask about the candidate’s projects, skills, or experience. Please check the public sources.' } });
     model.dispose();
   });
 
@@ -71,6 +76,30 @@ describe('browser Prompt API', () => {
     vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
     const model = await enableNativeModel({ signal: new AbortController().signal });
     expect(await model.reply('Tell me about Alex.', profile, [], new AbortController().signal)).toEqual({ kind: 'fallback', reason: 'invalid' });
+    expect(clone.destroy).toHaveBeenCalledOnce();
+    model.dispose();
+  });
+
+  it.each([
+    ['fabricated employer', 'Alex is CTO at Fabricated Labs.', ['candidate.name']],
+    ['fabricated role', 'Alex is VP of engineering.', ['projects.0']],
+    ['fabricated location', 'Alex is based in Paris.', ['candidate.location']],
+    ['fabricated achievement', 'Alex won a Nobel Prize.', ['faq.0']],
+    ['negated supported work', 'Alex never worked on the Order Service.', ['projects.0']],
+  ])('never displays %s from model prose even with valid public fact IDs', async (_label, invented, factIds) => {
+    const clone = { prompt: vi.fn(async () => JSON.stringify({ kind: 'answer', text: invented, factIds })), destroy: vi.fn() };
+    const session = { clone: vi.fn(async () => clone), destroy: vi.fn() };
+    vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
+    const model = await enableNativeModel({ signal: new AbortController().signal });
+    const result = await model.reply('Tell me about the candidate.', profile, [], new AbortController().signal);
+    if (result.kind === 'answer') {
+      expect(result.answer.text).toContain('Related public profile statements');
+      expect(result.answer.text).not.toContain(invented);
+      expect(result.answer.text).not.toContain('Fabricated Labs');
+      expect(result.answer.text).not.toContain('Nobel Prize');
+    } else {
+      expect(result).toEqual({ kind: 'fallback', reason: 'invalid' });
+    }
     expect(clone.destroy).toHaveBeenCalledOnce();
     model.dispose();
   });
