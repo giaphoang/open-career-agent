@@ -84,8 +84,36 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   expect((document.querySelector('.developer-tools') as HTMLDetailsElement).open).toBe(true);
   fireEvent.click(screen.getByText(/Optional on-device search/));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Enable on-device model' }).hasAttribute('disabled')).toBe(false));
+  let resolveNative!: (value: { select: typeof native.select; dispose: typeof native.dispose }) => void;
+  let nativeStartup!: { signal: AbortSignal; onProgress: (fraction: number) => void };
+  native.enable.mockImplementationOnce((options: typeof nativeStartup) => {
+    nativeStartup = options;
+    return new Promise(resolve => { resolveNative = resolve; });
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Enable on-device model' }));
+  const modelSummary = document.querySelector('.model-panel summary')!;
+  expect(modelSummary.textContent).toMatch(/LOADING/);
+  const download = screen.getByRole('progressbar', { name: 'Chrome LLM API model download' });
+  expect(download.getAttribute('value')).toBeNull();
+  expect(download.getAttribute('max')).toBe('1');
+  await act(async () => { nativeStartup.onProgress(0.22); });
+  expect(modelSummary.textContent).toMatch(/DOWNLOADING 22%/);
+  expect(download.getAttribute('value')).toBe('0.22');
+  // Model downloads must not prevent the instant, evidence-backed interview.
+  fireEvent.change(screen.getByLabelText('Ask a question about the portfolio'), { target: { value: firstFaq.questions[0] } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  expect(screen.getByText(firstFaq.answer)).toBeTruthy();
+  expect(native.select).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
+  await act(async () => { nativeStartup.onProgress(1); });
+  expect(download.getAttribute('value')).toBe('1');
+  expect(modelSummary.textContent).toMatch(/STARTING/);
+  expect(screen.getByText(/Chrome is preparing the model/)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Turn off model' })).toBeNull();
+  await act(async () => { resolveNative({ select: native.select, dispose: native.dispose }); });
   await screen.findByRole('button', { name: 'Turn off model' });
+  expect(modelSummary.textContent).toMatch(/ON/);
+  expect(screen.queryByRole('progressbar', { name: 'Chrome LLM API model download' })).toBeNull();
   const privateField = screen.getByLabelText('Ask a question about the portfolio');
   fireEvent.change(privateField, { target: { value: 'What is your salary?' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
@@ -133,6 +161,23 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   expect(wasm.create).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Turn off model' }));
   await screen.findByRole('button', { name: 'Enable on-device model' });
+  native.enable.mockImplementationOnce((options: typeof nativeStartup) => {
+    nativeStartup = options;
+    return new Promise(resolve => { resolveNative = resolve; });
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Enable on-device model' }));
+  await act(async () => { nativeStartup.onProgress(0.22); });
+  expect(modelSummary.textContent).toMatch(/DOWNLOADING 22%/);
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel loading' }));
+  expect(nativeStartup.signal.aborted).toBe(true);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Enable on-device model' }).hasAttribute('disabled')).toBe(false));
+  expect(modelSummary.textContent).toMatch(/OFF/);
+  expect(screen.queryByRole('progressbar', { name: 'Chrome LLM API model download' })).toBeNull();
+  // A session resolving after cancellation must be disposed, never shown as ready.
+  const disposedBeforeCancel = native.dispose.mock.calls.length;
+  await act(async () => { resolveNative({ select: native.select, dispose: native.dispose }); });
+  expect(native.dispose).toHaveBeenCalledTimes(disposedBeforeCancel + 1);
+  expect(modelSummary.textContent).toMatch(/OFF/);
   fireEvent.click(screen.getByRole('button', { name: 'Enable WASM search' }));
   await screen.findByRole('button', { name: 'Turn off WASM search' });
   expect(wasm.create).toHaveBeenCalledOnce();
@@ -168,5 +213,27 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   fireEvent.click(screen.getByRole('button', { name: 'Turn off WASM search' }));
   await waitFor(() => expect(wasm.dispose).toHaveBeenCalledTimes(2));
   expect(screen.getByRole('button', { name: 'Enable WASM search' })).toBeTruthy();
+  // Chrome may continue a shared download after this page cancels its request.
+  native.enable.mockImplementationOnce((options: typeof nativeStartup) => {
+    nativeStartup = options;
+    return new Promise(resolve => { resolveNative = resolve; });
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Enable on-device model' }));
+  await act(async () => { nativeStartup.onProgress(0.22); });
+  native.availability.mockResolvedValueOnce('downloading');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel loading' }));
+  expect(nativeStartup.signal.aborted).toBe(true);
+  await screen.findByText('Chrome is downloading its model');
+  const sharedDownload = screen.getByRole('progressbar', { name: 'Chrome LLM API model download' });
+  expect(sharedDownload.getAttribute('value')).toBeNull();
+  expect(modelSummary.textContent).toMatch(/DOWNLOADING/);
+  expect(modelSummary.textContent).not.toMatch(/\d+%/);
+  await act(async () => {
+    nativeStartup.onProgress(0.9);
+    resolveNative({ select: native.select, dispose: native.dispose });
+  });
+  expect(sharedDownload.getAttribute('value')).toBeNull();
+  expect(modelSummary.textContent).not.toMatch(/\d+%/);
+  expect(screen.queryByRole('button', { name: 'Turn off model' })).toBeNull();
   storageWrite.mockRestore();
 });
