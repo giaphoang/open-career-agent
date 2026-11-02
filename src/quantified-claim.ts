@@ -37,7 +37,9 @@ const SMALL_SPELLED_QUANTITY = /\b(?:two|three|four|five|six|seven|eight|nine|te
 // entity, not merely contain the same number for a different kind of count.
 // Intentionally narrow: this does not attempt to infer employment relationships.
 const COUNTED_UNIT = 'engineers?|developers?|teams?|projects?|users?|customers?|subscribers?|employees?|members?|people|persons?|events?|messages?|requests?|transactions?|systems?|services?|devices?|machines?|applications?|products?|years?|months?|dollars?';
-const COUNTED_NUMBER = `(?:\\d+(?:,\\d{3})*(?:\\.\\d+)?|(?:${WORDS})(?:[\\s-]+(?:${WORD_UNITS}))?(?:[\\s-]+(?:hundred|thousand|million|billion))?)`;
+// Include magnitude suffixes for digit forms too (e.g., 90 thousand engineers):
+// otherwise a matching 90,000 count can bypass the count-noun safety check.
+const COUNTED_NUMBER = `(?:\\d+(?:,\\d{3})*(?:\\.\\d+)?(?:[\\s-]+(?:hundred|thousand|million|billion))?|(?:${WORDS})(?:[\\s-]+(?:${WORD_UNITS}))?(?:[\\s-]+(?:hundred|thousand|million|billion))?)`;
 const COUNTED_PHRASE = new RegExp(`\\b(${COUNTED_NUMBER})[\\s-]+(${COUNTED_UNIT})\\b`, 'gi');
 // Percentages and headcounts sharing a number are different assertions.
 // These coarse dimensions are a safety check, not factual entailment.

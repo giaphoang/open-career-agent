@@ -117,6 +117,25 @@ describe('numeric premises in optional model FAQ suggestions', () => {
     // it never verifies the action asserted in the recruiter's question.
   });
 
+  it('does not reuse scaled counts as evidence for a different unit', () => {
+    const authored = {
+      questions: ['What scale did the sample support?'],
+      answer: 'The sample processed 24 thousand events with ninety thousand developers.',
+    };
+    // Both written and digit magnitude forms must carry the same count noun.
+    expect(hasUnsupportedQuantifiedPremise('Did you process 24 thousand requests?', authored)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you manage 90,000 engineers?', authored)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you process twenty-four thousand events?', authored)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you mentor 90 thousand developers?', authored)).toBe(false);
+
+    const digitAuthored = {
+      questions: ['How many people?'],
+      answer: 'The project handled 90 thousand messages from 20 million users.',
+    };
+    expect(hasUnsupportedQuantifiedPremise('Did you serve ninety thousand users?', digitAuthored)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you handle ninety thousand messages?', digitAuthored)).toBe(false);
+  });
+
   it('checks every recognized count unit independently, including plural aliases', () => {
     const documented = {
       questions: ['How many people worked there?'],
