@@ -259,7 +259,7 @@ try {
             super(...args);
             this.addEventListener('message', event => {
               if (event.data?.type === 'result' && event.data?.ok === true && event.data?.ranking) {
-                window.__wasmRankSamples.push(event.data.ranking);
+                window.__wasmRankSamples.push({ ...event.data.ranking, selectedIndex: event.data.index });
               }
             });
           }
@@ -301,13 +301,19 @@ try {
         }
         const finalText = await evaluate('document.querySelector(".exchange:last-child .agent-message .bubble")?.textContent ?? ""');
         const traced = await evaluate('window.__wasmProbe');
-        const matched = sample.faq.find(faq => finalText.includes('Related information from the public profile: ' + faq.answer));
         const evidenceLinks = await evaluate('document.querySelectorAll(".exchange:last-child .sources a").length');
         const ranking = traced.started ? await evaluate(`window.__wasmRankSamples.length > ${previousRankings} ? window.__wasmRankSamples.at(-1) : null`) : null;
-        if (matched) assert(evidenceLinks > 0 && finalText.includes('I can’t verify the specific claim'), 'A WASM FAQ selection must retain sources and a non-verification warning.');
+        // Never infer the FAQ ID by searching answer text: multiple distinct
+        // authored FAQs may share IDENTICAL answers (e.g. leadership/order-role).
+        // Use the worker's actual selected index to avoid false misclassification.
+        const selectedFaq = ranking && Number.isSafeInteger(ranking.selectedIndex) && ranking.selectedIndex >= 0
+          ? sample.faq[ranking.selectedIndex] : null;
+        if (selectedFaq) assert(evidenceLinks > 0 &&
+          finalText.includes('Related information from the public profile: ' + selectedFaq.answer) &&
+          finalText.includes('I can’t verify the specific claim'), 'A selected WASM FAQ must retain its exact authored answer, sources, and non-verification warning.');
         const result = { category: row.category, question: row.question,
           ...(row.faqId ? { expectedFaqId: row.faqId } : {}),
-          wasmAttempt: traced.started, returnedFaqId: matched?.id ?? null,
+          wasmAttempt: traced.started, returnedFaqId: selectedFaq?.id ?? null,
           privateRefusal: finalText.includes('I can only discuss information the candidate chose to publish'), evidenceLinks,
           ...(ranking ? { ranking: { ...ranking, bestFaqId: sample.faq[ranking.bestIndex]?.id ?? null } } : {}),
           elapsedUiMs: Number((performance.now() - startedAt).toFixed(1)) };
@@ -316,7 +322,7 @@ try {
           const predicted = ranking.bestCosine >= 0.48 &&
             (ranking.runnerUpCosine === null || ranking.bestCosine - ranking.runnerUpCosine >= 0.04)
             ? sample.faq[ranking.bestIndex]?.id ?? null : null;
-          assert.equal(predicted, matched?.id ?? null, 'Worker score trace must reproduce the active ranking result.');
+          assert.equal(predicted, selectedFaq?.id ?? null, 'Worker score trace must reproduce the active ranking result.');
         }
         if (row.category === 'sensitive') assert(!result.wasmAttempt && result.privateRefusal, 'Sensitive query reached the model or was not refused: ' + row.question);
       }
