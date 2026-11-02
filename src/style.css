@@ -48,3 +48,19 @@ a{color:inherit}button,input{font:inherit}button,a{touch-action:manipulation}a:f
   .bubble,.user-bubble{font-size:15px}
   .profile-link{align-items:center}
 }
+
+/* Recruiter reading contrast: normal text targets >= 4.5:1 against its
+   actual light surface (WCAG 2.2 1.4.3). Muted labels must still be readable. */
+.hero-copy>p:not(.hero-role),.hero-meta,.section-heading>p,.experience>div>p,
+.timeline article>span,.timeline p,.footer p,.footer a{color:#4f6155}
+.chat-header p,.message-name span,.chat-foot,.suggestions>span,.sources>span,
+.project-head,.project-role,.tiny-label,.eyebrow,.live-label{color:#526b5b}
+.headline,.profile-location,.bio,.project-content p{color:#4a6152}
+.sources a{color:#345c3d;font-size:13px}
+.suggestions button{color:#365940;font-size:13px}
+.hero-copy>p:not(.hero-role){font-size:16px}
+.chat-header p,.bio,.project-content p,.timeline p,.headline,.profile-location,
+.section-heading>p,.experience>div>p{font-size:14px}
+.bubble,.user-bubble{font-size:15px}
+.hero-meta,.message-name,.chat-foot,.project-role,.timeline article>span{font-size:12px}
+.suggestions>span,.sources>span,.live-label{font-size:11px}
