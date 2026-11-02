@@ -258,7 +258,7 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   await act(async () => { resolveNative({ reply: native.reply, dispose: native.dispose }); });
   expect(native.dispose).toHaveBeenCalledTimes(disposedBeforeCancel + 1);
   expect(modelSummary.textContent).toMatch(/OFF/);
-  fireEvent.click(screen.getByText(/For developers · Clone this template/));
+  fireEvent.click(screen.getByText(/Make this portfolio your own/));
   expect((document.querySelector('.developer-tools') as HTMLDetailsElement).open).toBe(true);
   fireEvent.click(screen.getByText(/Optional on-device AI/));
   fireEvent.click(screen.getByRole('button', { name: 'Enable WASM search' }));
