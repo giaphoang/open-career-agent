@@ -31,7 +31,10 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
       options.signal.removeEventListener('abort', abortStartup);
       if (pending) { const request = pending; pending = undefined; request.cleanup(); request.resolve(null); }
       worker.terminate();
-      if (ready) options.onClosed?.();
+      if (ready) {
+        try { options.onClosed?.(); }
+        catch { /* teardown must remain reliable if a UI observer fails */ }
+      }
     }
     function failStart(message: string) { shutdown(); reject(new Error(message)); }
     function reportTiming(phase: WasmTiming['phase'], startedAt: number, faqCacheHit?: boolean) {
@@ -46,7 +49,10 @@ export function createWasmSearch(options: { signal: AbortSignal; onProgress?: (f
       const value = event.data;
       if (typeof value !== 'object' || value === null || !('type' in value)) return;
       if (value.type === 'progress' && 'progress' in value && typeof value.progress === 'number' && Number.isFinite(value.progress)) {
-        options.onProgress?.(Math.max(0, Math.min(1, value.progress))); return;
+        // Progress observers are best-effort UI hooks, never part of retrieval correctness.
+        try { options.onProgress?.(Math.max(0, Math.min(1, value.progress))); }
+        catch { /* observer failure must not stall model initialization */ }
+        return;
       }
       if (value.type === 'error') { if (ready) shutdown(); else failStart('Could not load the WASM model.'); return; }
       if (value.type === 'ready' && !ready && !closed) {
