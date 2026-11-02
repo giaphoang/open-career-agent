@@ -146,6 +146,7 @@ function comparedQuantities(text: string): Map<string, Set<string>> {
   }
   for (const match of text.matchAll(SYMBOLIC_COMPARED_QUANTITY)) {
     const kind = SYMBOLIC_COMPARISON_KINDS[match[1]!];
+    if (!kind) continue;
     const counts = quantities(match[2]!);
     // Standalone "one" still represents a quantity after a comparison sign.
     if (match[2]!.toLowerCase() === 'one') counts.add(quantityKey(1, 'count'));
