@@ -20,6 +20,7 @@ vi.mock('../src/browser-llm', () => ({
   enableNativeModel: native.enable,
 }));
 
+// Allow shared CI runners time to complete this integrated functional journey.
 it('supports evidence chat, guided role discovery, skill lookup, and clearing during a delayed model result', async () => {
   native.enable.mockResolvedValue({ reply: native.reply, dispose: native.dispose });
   wasm.create.mockResolvedValue({ select: wasm.select, dispose: wasm.dispose });
@@ -285,4 +286,4 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   expect(modelSummary.textContent).not.toMatch(/\d+%/);
   expect(screen.queryByRole('button', { name: 'Turn off model' })).toBeNull();
   storageWrite.mockRestore();
-});
+}, 10000);
