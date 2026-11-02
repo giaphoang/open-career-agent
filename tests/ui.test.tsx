@@ -3,6 +3,7 @@ import { act } from 'react';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import rawProfile from './fixtures/sample-profile.json';
+import type { NativeModel } from '../src/browser-llm';
 
 Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
 vi.mock('../src/data/profile.json', async () => ({ default: (await import('./fixtures/sample-profile.json')).default }));
@@ -10,7 +11,7 @@ const wasm = vi.hoisted(() => ({ create: vi.fn(), select: vi.fn(), dispose: vi.f
 vi.mock('../src/wasm-search', () => ({ createWasmSearch: wasm.create }));
 const native = vi.hoisted(() => ({
   availability: vi.fn(async () => 'available'),
-  select: vi.fn(),
+  reply: vi.fn(),
   dispose: vi.fn(),
   enable: vi.fn(),
 }));
@@ -20,7 +21,7 @@ vi.mock('../src/browser-llm', () => ({
 }));
 
 it('supports evidence chat, guided role discovery, skill lookup, and clearing during a delayed model result', async () => {
-  native.enable.mockResolvedValue({ select: native.select, dispose: native.dispose });
+  native.enable.mockResolvedValue({ reply: native.reply, dispose: native.dispose });
   wasm.create.mockResolvedValue({ select: wasm.select, dispose: wasm.dispose });
   const storageWrite = vi.spyOn(Storage.prototype, 'setItem');
   document.body.innerHTML = '<div id="root"></div>';
@@ -82,9 +83,9 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
 
   fireEvent.click(screen.getByText(/For developers · Clone this template/));
   expect((document.querySelector('.developer-tools') as HTMLDetailsElement).open).toBe(true);
-  fireEvent.click(screen.getByText(/Optional on-device search/));
+  fireEvent.click(screen.getByText(/Optional on-device AI/));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Enable on-device model' }).hasAttribute('disabled')).toBe(false));
-  let resolveNative!: (value: { select: typeof native.select; dispose: typeof native.dispose }) => void;
+  let resolveNative!: (value: { reply: typeof native.reply; dispose: typeof native.dispose }) => void;
   let nativeStartup!: { signal: AbortSignal; onProgress: (fraction: number) => void };
   native.enable.mockImplementationOnce((options: typeof nativeStartup) => {
     nativeStartup = options;
@@ -103,64 +104,112 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   fireEvent.change(screen.getByLabelText('Ask a question about the portfolio'), { target: { value: firstFaq.questions[0] } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
   expect(screen.getByText(firstFaq.answer)).toBeTruthy();
-  expect(native.select).not.toHaveBeenCalled();
+  expect(native.reply).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
   await act(async () => { nativeStartup.onProgress(1); });
   expect(download.getAttribute('value')).toBe('1');
   expect(modelSummary.textContent).toMatch(/STARTING/);
   expect(screen.getByText(/Chrome is preparing the model/)).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Turn off model' })).toBeNull();
-  await act(async () => { resolveNative({ select: native.select, dispose: native.dispose }); });
+  await act(async () => { resolveNative({ reply: native.reply, dispose: native.dispose }); });
   await screen.findByRole('button', { name: 'Turn off model' });
   expect(modelSummary.textContent).toMatch(/ON/);
+  expect(screen.getByText('Chrome LLM API enabled for conversation using the public profile')).toBeTruthy();
   expect(screen.queryByRole('progressbar', { name: 'Chrome LLM API model download' })).toBeNull();
   const privateField = screen.getByLabelText('Ask a question about the portfolio');
-  fireEvent.change(privateField, { target: { value: 'What is your salary?' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  const askNative = (question: string) => {
+    fireEvent.change(privateField, { target: { value: question } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  };
+  askNative('What is your salary?');
   expect(screen.getByText(/only discuss information the candidate chose to publish/i)).toBeTruthy();
-  expect(native.select).not.toHaveBeenCalled();
-  // A semantic model may choose "leadership" for an unsupported 1,000-person
-  // management claim. The UI must not turn that choice into a suggested FAQ.
-  native.select.mockResolvedValueOnce(2);
-  fireEvent.change(privateField, { target: { value: 'Did you manage one thousand developers on the example project?' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
-  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-  expect(native.select).toHaveBeenCalledOnce();
-  expect(screen.queryByText(/Related information from the public profile/)).toBeNull();
+  expect(native.reply).not.toHaveBeenCalled();
 
-  // Compact numeric suffixes must receive the same fail-closed protection.
-  native.select.mockResolvedValueOnce(2);
-  fireEvent.change(privateField, { target: { value: 'Did you manage 100K engineers?' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
-  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-  expect(native.select).toHaveBeenCalledTimes(2);
-  expect(screen.queryByText(/Related information from the public profile/)).toBeNull();
+  // Role answers stay out of native conversation context and never trigger inference.
+  fireEvent.click(screen.getByRole('button', { name: /Discuss the role/ }));
+  await reply('Staff backend engineer');
+  expect(screen.getByText('Which technologies or stack matter for this role?')).toBeTruthy();
+  expect(native.reply).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Stop role questions' }));
 
-  // A related runbook FAQ must never imply universal outage prevention.
-  native.select.mockResolvedValueOnce(14);
-  fireEvent.change(privateField, { target: { value: 'Did your runbook eliminate every outage permanently?' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
-  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-  expect(native.select).toHaveBeenCalledTimes(3);
-  expect(screen.queryByText(/Related information from the public profile/)).toBeNull();
+  // An exact FAQ match must still use the enabled native conversation provider.
+  type NativeReply = Awaited<ReturnType<NativeModel['reply']>>;
+  let resolveReply!: (value: NativeReply) => void;
+  native.reply.mockImplementationOnce(() => new Promise<NativeReply>(resolve => { resolveReply = resolve; }));
+  askNative(firstFaq.questions[0]!);
+  expect(native.reply).toHaveBeenCalledOnce();
+  expect(native.reply.mock.calls[0]![0]).toBe(firstFaq.questions[0]);
+  expect(native.reply.mock.calls[0]![1]).toEqual(rawProfile);
+  expect(native.reply.mock.calls[0]![2]).toEqual([]);
+  expect(screen.getByText('Chrome LLM API is drafting a reply…')).toBeTruthy();
+  const draft = { kind: 'answer' as const, text: 'Here is a draft based on the public profile.', evidence: [firstSource] };
+  await act(async () => { resolveReply({ kind: 'answer', answer: draft, elapsedMs: 12 }); });
+  expect(screen.getByText(draft.text)).toBeTruthy();
+  expect(screen.getByText(/Chrome LLM API · AI DRAFT · CHECK SOURCES/)).toBeTruthy();
+  expect(screen.queryByText('Chrome LLM API is drafting a reply…')).toBeNull();
+  expect(screen.getAllByRole('link', { name: new RegExp(firstSource.label) }).some(link => link.getAttribute('href') === firstSource.url)).toBe(true);
+
+  // The next turn receives public conversational context, never the salary refusal.
+  const followUp = 'Could you explain that in simpler terms?';
+  const secondDraft = { ...draft, text: 'This is a simpler description of the same public work.' };
+  native.reply.mockResolvedValueOnce({ kind: 'answer', answer: secondDraft, elapsedMs: 8 });
+  askNative(followUp);
+  await screen.findByText(secondDraft.text);
+  expect(native.reply.mock.calls[1]![2]).toEqual([{ question: firstFaq.questions[0], answer: draft.text }]);
+  native.reply.mockResolvedValueOnce({ kind: 'answer', answer: { ...draft, text: 'Hello. What would you like to know about the public profile?' }, elapsedMs: 7 });
+  askNative('Hello');
+  await screen.findByText('Hello. What would you like to know about the public profile?');
+  expect(native.reply.mock.calls[2]![2]).toEqual([
+    { question: firstFaq.questions[0], answer: draft.text },
+    { question: followUp, answer: secondDraft.text },
+  ]);
+
+  // Failed inference retains the authored answer and explains the visible fallback.
+  native.reply.mockResolvedValueOnce({ kind: 'fallback', reason: 'error' });
+  askNative(firstFaq.questions[0]!);
+  await screen.findByText('Chrome LLM API could not reply. Showing the instant profile answer.');
+  expect(screen.getByText(firstFaq.answer)).toBeTruthy();
+  expect(native.reply.mock.calls[3]![2]).toHaveLength(3);
+  expect(JSON.stringify(native.reply.mock.calls[3]![2])).not.toMatch(/salary/i);
+  expect(screen.queryByText('Chrome LLM API is drafting a reply…')).toBeNull();
 
   fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
-  let resolveSelection!: (value: number) => void;
-  native.select.mockImplementation(() => new Promise<number>(resolve => { resolveSelection = resolve; }));
-  const field = screen.getByLabelText('Ask a question about the portfolio');
-  fireEvent.change(field, { target: { value: 'Have you won a Nobel Prize?' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
-  expect(native.select).toHaveBeenCalledTimes(4);
+
+  native.reply.mockImplementationOnce(() => new Promise<NativeReply>(resolve => { resolveReply = resolve; }));
+  askNative('Have you won a Nobel Prize?');
+  expect(native.reply).toHaveBeenCalledTimes(5);
+  expect(native.reply.mock.calls[4]![2]).toEqual([]);
   expect(screen.getByText('Have you won a Nobel Prize?')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
-  expect((native.select.mock.calls[3]![2] as AbortSignal).aborted).toBe(true);
-  await act(async () => { resolveSelection(0); await Promise.resolve(); });
+  expect((native.reply.mock.calls[4]![3] as AbortSignal).aborted).toBe(true);
+  await act(async () => { resolveReply({ kind: 'answer', answer: draft, elapsedMs: 25 }); });
   expect(screen.queryByText('Have you won a Nobel Prize?')).toBeNull();
-  expect(screen.queryByText(/Related information from the public profile/)).toBeNull();
+  expect(screen.queryByText(draft.text)).toBeNull();
+  expect(screen.queryByText('Chrome LLM API is drafting a reply…')).toBeNull();
   expect(storageWrite).not.toHaveBeenCalled();
   expect(wasm.create).not.toHaveBeenCalled();
+
+  // A new request cancels the earlier turn, without using its unfinished context.
+  let resolveEarlierReply!: (value: NativeReply) => void;
+  native.reply.mockImplementationOnce(() => new Promise<NativeReply>(resolve => { resolveEarlierReply = resolve; }));
+  askNative('Have you worked as an astronaut?');
+  native.reply.mockImplementationOnce(() => new Promise<NativeReply>(resolve => { resolveReply = resolve; }));
+  askNative(firstFaq.questions[0]!);
+  expect((native.reply.mock.calls[5]![3] as AbortSignal).aborted).toBe(true);
+  expect(native.reply.mock.calls[6]![2]).toEqual([]);
+  await act(async () => { resolveEarlierReply({ kind: 'answer', answer: { ...draft, text: 'This is a stale draft from the earlier request.' }, elapsedMs: 25 }); });
+  expect(screen.queryByText('This is a stale draft from the earlier request.')).toBeNull();
+  expect(screen.getByText('Chrome LLM API is drafting a reply…')).toBeTruthy();
+
+  // Turning the provider off also aborts an active reply and discards its late result.
   fireEvent.click(screen.getByRole('button', { name: 'Turn off model' }));
+  expect((native.reply.mock.calls[6]![3] as AbortSignal).aborted).toBe(true);
   await screen.findByRole('button', { name: 'Enable on-device model' });
+  await act(async () => { resolveReply({ kind: 'answer', answer: draft, elapsedMs: 25 }); });
+  expect(screen.queryByText(draft.text)).toBeNull();
+  expect(screen.queryByText('Chrome LLM API is drafting a reply…')).toBeNull();
+  expect(screen.getByText(firstFaq.answer)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
   native.enable.mockImplementationOnce((options: typeof nativeStartup) => {
     nativeStartup = options;
     return new Promise(resolve => { resolveNative = resolve; });
@@ -175,7 +224,7 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   expect(screen.queryByRole('progressbar', { name: 'Chrome LLM API model download' })).toBeNull();
   // A session resolving after cancellation must be disposed, never shown as ready.
   const disposedBeforeCancel = native.dispose.mock.calls.length;
-  await act(async () => { resolveNative({ select: native.select, dispose: native.dispose }); });
+  await act(async () => { resolveNative({ reply: native.reply, dispose: native.dispose }); });
   expect(native.dispose).toHaveBeenCalledTimes(disposedBeforeCancel + 1);
   expect(modelSummary.textContent).toMatch(/OFF/);
   fireEvent.click(screen.getByRole('button', { name: 'Enable WASM search' }));
@@ -230,7 +279,7 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   expect(modelSummary.textContent).not.toMatch(/\d+%/);
   await act(async () => {
     nativeStartup.onProgress(0.9);
-    resolveNative({ select: native.select, dispose: native.dispose });
+    resolveNative({ reply: native.reply, dispose: native.dispose });
   });
   expect(sharedDownload.getAttribute('value')).toBeNull();
   expect(modelSummary.textContent).not.toMatch(/\d+%/);
