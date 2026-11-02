@@ -38,18 +38,23 @@ async function connect(url) {
   await new Promise((ok, fail) => { ws.addEventListener('open', ok, { once: true }); ws.addEventListener('error', fail, { once: true }); });
   let serial = 0;
   const pending = new Map();
+  const listeners = new Set();
   ws.addEventListener('message', event => {
     const data = JSON.parse(String(event.data));
-    if (!data.id || !pending.has(data.id)) return;
+    if (!data.id) {
+      for (const listener of listeners) { try { listener(data); } catch { /* optional observer */ } }
+      return;
+    }
+    if (!pending.has(data.id)) return;
     const next = pending.get(data.id); pending.delete(data.id); clearTimeout(next.timer);
     data.error ? next.reject(Error(data.error.message)) : next.resolve(data.result ?? {});
   });
-  return { ws, call(method, params = {}) {
+  return { ws, onEvent(listener) { listeners.add(listener); return () => listeners.delete(listener); }, call(method, params = {}, sessionId) {
     return new Promise((ok, fail) => {
       const id = ++serial;
       const timer = setTimeout(() => { pending.delete(id); fail(Error(method + ' timed out')); }, 15000);
       pending.set(id, { resolve: ok, reject: fail, timer });
-      ws.send(JSON.stringify({ id, method, params }));
+      ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
     });
   } };
 }
@@ -65,7 +70,7 @@ try {
     return existsSync(f) ? Number(readFileSync(f, 'utf8').split('\n')[0]) : null;
   }, 'Chrome failed to start.');
   const target = await until(async () => (await (await fetch('http://127.0.0.1:' + port + '/json/list')).json()).find(t => t.type === 'page'), 'Chrome tab missing.');
-  const { ws, call } = await connect(target.webSocketDebuggerUrl);
+  const { ws, call, onEvent } = await connect(target.webSocketDebuggerUrl);
   await call('Page.enable'); await call('Runtime.enable'); await call('Network.enable'); await call('Accessibility.enable');
   async function pressEnter() {
     const key = { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 };
@@ -254,8 +259,52 @@ try {
       model: 'Xenova/all-MiniLM-L6-v2', modelRevision: '751bff37182d3f1213fa05d7196b954e230abad9',
       perCategory, totalCorpusCases: categories.reduce((sum, category) => sum + corpus[category].length + holdout[category].length, 0), calibrationCases: rows.filter(row => row.split === 'calibration').length,
       holdoutCases: rows.filter(row => row.split === 'holdout').length, holdoutVersion: holdout.version,
-      sampledCases: rows.length, results: [], limitations: 'Chromium desktop CI runner only; not a mobile device or WebGPU test. No remote-model download byte measurement. UI wall time includes rendering; worker timings are separately displayed. No validation that linked evidence substantiates claims.' };
+      sampledCases: rows.length, results: [], limitations: 'Chromium desktop CI runner only; not a mobile device or WebGPU test. Model/runtime bytes are CDP-observed uncached encoded transfers in this one CI run; UI wall time includes rendering; worker timings are separately displayed. No validation that linked evidence substantiates claims.' };
     try {
+      // Track actual completed remote transfer bytes for model/runtime downloads.
+      // Workers use separate CDP sessions: page-only Network events miss them.
+      // Pause newly attached workers until Network is enabled to avoid missing
+      // the first model download. Only aggregate public CDN hostnames and sizes.
+      const remoteRequests = new Map();
+      const transfersByHost = new Map();
+      const meterErrors = [];
+      const keyFor = (sessionId, requestId) => (sessionId ?? 'page') + ':' + requestId;
+      const unobserve = onEvent(({ method, params = {}, sessionId }) => {
+        if (method === 'Target.attachedToTarget' && params.sessionId) {
+          void call('Network.enable', {}, params.sessionId)
+            .catch(error => meterErrors.push('Network enable: ' + String(error)))
+            .finally(() => call('Runtime.runIfWaitingForDebugger', {}, params.sessionId)
+              .catch(error => meterErrors.push('Worker resume: ' + String(error))));
+          return;
+        }
+        if (method === 'Network.requestWillBeSent') {
+          try {
+            const url = new URL(params.request?.url);
+            if (url.protocol !== 'https:' || !url.hostname) return;
+            remoteRequests.set(keyFor(sessionId, params.requestId), { host: url.hostname.toLowerCase(), cached: false });
+          } catch { /* ignore local and non-URL requests */ }
+        } else if (method === 'Network.requestServedFromCache') {
+          const request = remoteRequests.get(keyFor(sessionId, params.requestId));
+          if (request) request.cached = true;
+        } else if (method === 'Network.responseReceived') {
+          const request = remoteRequests.get(keyFor(sessionId, params.requestId));
+          if (request && (params.response?.fromDiskCache || params.response?.fromServiceWorker)) request.cached = true;
+        } else if (method === 'Network.loadingFinished') {
+          const id = keyFor(sessionId, params.requestId);
+          const request = remoteRequests.get(id);
+          if (!request) return;
+          remoteRequests.delete(id);
+          const bytes = params.encodedDataLength;
+          const current = transfersByHost.get(request.host) ?? { requests: 0, encodedBytes: 0, cached: 0 };
+          current.requests++;
+          if (request.cached) current.cached++;
+          if (Number.isFinite(bytes) && bytes >= 0 && !request.cached) current.encodedBytes += bytes;
+          transfersByHost.set(request.host, current);
+        } else if (method === 'Network.loadingFailed') {
+          remoteRequests.delete(keyFor(sessionId, params.requestId));
+        }
+      });
+      await call('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
       // Instrument worker result metadata ONLY inside the opt-in benchmark tab.
       // Do not log prompts, vectors, personal data, or send results off-device.
       await call('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
@@ -287,6 +336,21 @@ try {
       assert.equal(status, 'ready', 'Actual WASM startup failed: ' + status);
       benchmarkReport.modelReadyWallMs = Date.now() - beganAt;
       benchmarkReport.userAgent = await evaluate('navigator.userAgent');
+      // Loading is complete before queries begin: this is cold model/runtime
+      // transfer, not the size of subsequent 154 local inference requests.
+      benchmarkReport.modelNetworkTransfer = {
+        method: 'CDP Network.loadingFinished encodedDataLength from page and auto-attached workers',
+        encodedBytes: [...transfersByHost.values()].reduce((sum, item) => sum + item.encodedBytes, 0),
+        requests: [...transfersByHost.values()].reduce((sum, item) => sum + item.requests, 0),
+        hosts: Object.fromEntries([...transfersByHost].sort(([a], [b]) => a.localeCompare(b))),
+        meterErrors,
+        limitation: 'Encoded response transfer sizes on a fresh Chromium CI profile, not model weight size or a browser cache/real-phone measurement.'
+      };
+      unobserve();
+      await call('Target.setAutoAttach', { autoAttach: false, waitForDebuggerOnStart: false, flatten: true });
+      assert(benchmarkReport.modelNetworkTransfer.encodedBytes > 0 && benchmarkReport.modelNetworkTransfer.requests > 0,
+        'CDP saw no remote model/runtime transfer bytes; do not publish a zero-byte benchmark as a measurement.');
+      assert.deepEqual(meterErrors, [], 'CDP worker sessions must be instrumented before reporting transfer bytes.');
 
       for (const row of rows) {
         const count = await evaluate('document.querySelectorAll(".exchange").length');
@@ -400,7 +464,7 @@ try {
       throw error;
     }
     await writeFile(join(output, 'wasm-relevance.json'), JSON.stringify(benchmarkReport, null, 2) + '\n');
-    console.log('Real WASM evaluation summary: ' + JSON.stringify({ summary: benchmarkReport.summary, performancePanel: benchmarkReport.performancePanel }, null, 2));
+    console.log('Real WASM evaluation summary: ' + JSON.stringify({ summary: benchmarkReport.summary, modelNetworkTransfer: benchmarkReport.modelNetworkTransfer, performancePanel: benchmarkReport.performancePanel }, null, 2));
   }
   const report = { browser, method: 'headless Chromium; WebGPU disabled; no local model enabled; network offline after initial load', results, ...(wasmEvaluation ? { wasmEvaluation: { sampleCount: wasmEvaluation.sampledCases, summary: wasmEvaluation.summary } } : {}) };
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2));
