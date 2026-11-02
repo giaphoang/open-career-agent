@@ -228,11 +228,17 @@ try {
     assert.deepEqual(JSON.parse(await readFile('src/data/profile.json', 'utf8')), sample,
       'The real-model evaluation requires the fictional sample profile to match the labeled corpus.');
     const corpus = JSON.parse(await readFile('tests/fixtures/retrieval-corpus.json', 'utf8'));
+    const holdout = JSON.parse(await readFile('tests/fixtures/retrieval-holdout.json', 'utf8'));
     const perCategory = Number(process.env.WASM_EVAL_PER_CATEGORY ?? 8);
     assert(Number.isSafeInteger(perCategory) && perCategory >= 1 && perCategory <= 100, 'WASM_EVAL_PER_CATEGORY must be 1-100.');
     assert.equal(corpus.version, 1);
-    const rows = ['paraphrases', 'unrelated', 'sensitive', 'ambiguous']
-      .flatMap(category => corpus[category].slice(0, perCategory).map(row => ({ category, ...row })));
+    assert.equal(holdout.version, 1);
+    const categories = ['paraphrases', 'unrelated', 'sensitive', 'ambiguous'];
+    // Keep the original exploratory dataset separate from newly authored,
+    // untouched questions. Only calibration cases may guide threshold choices.
+    const rowsFor = (dataset, split) => categories.flatMap(category =>
+      dataset[category].slice(0, perCategory).map(row => ({ split, category, ...row })));
+    const rows = [...rowsFor(corpus, 'calibration'), ...rowsFor(holdout, 'holdout')];
     const waitModel = async (fn, timeoutMs, error) => {
       const deadline = Date.now() + timeoutMs;
       while (Date.now() < deadline) {
@@ -246,7 +252,8 @@ try {
       corpusVersion: corpus.version, browser, node: process.version, platform: process.platform, architecture: process.arch,
       runnerHardware: { cpuModel: cpus()[0]?.model ?? 'unknown', logicalCores: cpus().length, visibleRamGiB: Number((totalmem() / 1024 ** 3).toFixed(1)) },
       model: 'Xenova/all-MiniLM-L6-v2', modelRevision: '751bff37182d3f1213fa05d7196b954e230abad9',
-      perCategory, totalCorpusCases: Object.values(corpus).filter(Array.isArray).reduce((count, arr) => count + arr.length, 0),
+      perCategory, totalCorpusCases: rows.length, calibrationCases: rows.filter(row => row.split === 'calibration').length,
+      holdoutCases: rows.filter(row => row.split === 'holdout').length, holdoutVersion: holdout.version,
       sampledCases: rows.length, results: [], limitations: 'Chromium desktop CI runner only; not a mobile device or WebGPU test. No remote-model download byte measurement. UI wall time includes rendering; worker timings are separately displayed. No validation that linked evidence substantiates claims.' };
     try {
       // Instrument worker result metadata ONLY inside the opt-in benchmark tab.
@@ -311,7 +318,7 @@ try {
         if (selectedFaq) assert(evidenceLinks > 0 &&
           finalText.includes('Related information from the public profile: ' + selectedFaq.answer) &&
           finalText.includes('I can’t verify the specific claim'), 'A selected WASM FAQ must retain its exact authored answer, sources, and non-verification warning.');
-        const result = { category: row.category, question: row.question,
+        const result = { split: row.split, category: row.category, question: row.question,
           ...(row.faqId ? { expectedFaqId: row.faqId } : {}),
           wasmAttempt: traced.started, returnedFaqId: selectedFaq?.id ?? null,
           privateRefusal: finalText.includes('I can only discuss information the candidate chose to publish'), evidenceLinks,
@@ -326,26 +333,30 @@ try {
         }
         if (row.category === 'sensitive') assert(!result.wasmAttempt && result.privateRefusal, 'Sensitive query reached the model or was not refused: ' + row.question);
       }
-      benchmarkReport.summary = Object.fromEntries(['paraphrases','unrelated','sensitive','ambiguous'].map(category => {
-        const subset = benchmarkReport.results.filter(row => row.category === category);
+      const summarize = results => Object.fromEntries(categories.map(category => {
+        const subset = results.filter(row => row.category === category);
         const actual = subset.filter(row => row.wasmAttempt);
         return [category, { checked: subset.length, modelAttempts: actual.length,
           selectedFaqs: actual.filter(row => row.returnedFaqId !== null).length,
-          correctSelections: actual.filter(row => row.returnedFaqId === row.expectedFaqId && !!row.expectedFaqId).length }];
+          correctSelections: actual.filter(row => row.returnedFaqId === row.expectedFaqId && !!row.expectedFaqId).length,
+          wrongSelections: actual.filter(row => row.returnedFaqId !== null && row.returnedFaqId !== row.expectedFaqId).length }];
       }));
-      const paraphrase = benchmarkReport.summary.paraphrases;
-      const unrelated = benchmarkReport.summary.unrelated;
-      benchmarkReport.correctFaqRate = paraphrase.modelAttempts ? paraphrase.correctSelections / paraphrase.modelAttempts : null;
-      benchmarkReport.unrelatedFalseRelatedRate = unrelated.modelAttempts ? unrelated.selectedFaqs / unrelated.modelAttempts : null;
-      benchmarkReport.summaryNote = 'Rates use only actual WASM attempts; null means no measurable sample. Absent a model calibration gate, these are observational and may show unsafe relevance.';
-      // Replay acceptance gates against the SAME recorded real-model cosine
-      // scores; no extra inference or speculation. This is exploratory tuning
-      // on a synthetic corpus, not an independent held-out validation.
+      benchmarkReport.summary = summarize(benchmarkReport.results);
+      benchmarkReport.summaryBySplit = Object.fromEntries(['calibration', 'holdout'].map(split =>
+        [split, summarize(benchmarkReport.results.filter(row => row.split === split))]));
+      const calibration = benchmarkReport.summaryBySplit.calibration;
+      const heldOut = benchmarkReport.summaryBySplit.holdout;
+      const rate = (numerator, denominator) => denominator ? numerator / denominator : null;
+      benchmarkReport.correctFaqRate = rate(calibration.paraphrases.correctSelections, calibration.paraphrases.modelAttempts);
+      benchmarkReport.unrelatedFalseRelatedRate = rate(calibration.unrelated.selectedFaqs, calibration.unrelated.modelAttempts);
+      benchmarkReport.holdoutCorrectFaqRate = rate(heldOut.paraphrases.correctSelections, heldOut.paraphrases.modelAttempts);
+      benchmarkReport.holdoutUnrelatedFalseRelatedRate = rate(heldOut.unrelated.selectedFaqs, heldOut.unrelated.modelAttempts);
+      benchmarkReport.summaryNote = 'Calibration and holdout rates use actual WASM attempts. Holdout labels were authored after exploratory scoring, but repeated reuse would invalidate independence.';
       const scored = benchmarkReport.results.filter(row => row.wasmAttempt && row.ranking);
       benchmarkReport.scoredModelAttempts = scored.length;
-      benchmarkReport.thresholdGrid = [0.48, 0.52, 0.56, 0.60].flatMap(minCosine =>
+      const replayGrid = (subset) => [0.48, 0.52, 0.56, 0.60].flatMap(minCosine =>
         [0.04, 0.06, 0.08, 0.10, 0.12].map(minMargin => {
-          const predicted = scored.map(row => ({
+          const predicted = subset.map(row => ({
             ...row,
             candidate: row.ranking.bestCosine >= minCosine &&
               (row.ranking.runnerUpCosine === null || row.ranking.bestCosine - row.ranking.runnerUpCosine >= minMargin)
@@ -361,10 +372,15 @@ try {
             unrelatedFalseRelated: unrelated.filter(row => row.candidate !== null).length,
             ambiguousSuggestions: ambiguous.filter(row => row.candidate !== null).length };
         }));
+      benchmarkReport.thresholdGrid = replayGrid(scored.filter(row => row.split === 'calibration'));
+      benchmarkReport.holdoutThresholdGrid = replayGrid(scored.filter(row => row.split === 'holdout'));
       const baseline = benchmarkReport.thresholdGrid.find(row => row.minCosine === 0.48 && row.minMargin === 0.04);
-      assert.equal(baseline.paraphraseCorrect, paraphrase.correctSelections, 'Score-based baseline must reproduce WASM correct-match count.');
-      assert.equal(baseline.unrelatedFalseRelated, unrelated.selectedFaqs, 'Score-based baseline must reproduce unrelated false suggestions.');
-      benchmarkReport.calibrationLimitation = 'Exploratory threshold grid on the same 106 synthetic cases: do not select production thresholds without held-out and real-device checks.';
+      const holdoutBaseline = benchmarkReport.holdoutThresholdGrid.find(row => row.minCosine === 0.48 && row.minMargin === 0.04);
+      assert.equal(baseline.paraphraseCorrect, calibration.paraphrases.correctSelections, 'Calibration scores must reproduce WASM correct matches.');
+      assert.equal(baseline.unrelatedFalseRelated, calibration.unrelated.selectedFaqs, 'Calibration scores must reproduce WASM false suggestions.');
+      assert.equal(holdoutBaseline.paraphraseCorrect, heldOut.paraphrases.correctSelections, 'Holdout scores must reproduce WASM correct matches.');
+      assert.equal(holdoutBaseline.unrelatedFalseRelated, heldOut.unrelated.selectedFaqs, 'Holdout scores must reproduce WASM false suggestions.');
+      benchmarkReport.calibrationLimitation = 'The 106 older synthetic questions are calibration data. The 48 new questions are a first independent holdout; never optimize based on its results and then call it independent. Real-device validation is still absent.';
       benchmarkReport.performancePanel = await evaluate('Object.fromEntries([...document.querySelectorAll(".performance-panel dl div")].map(row => [row.querySelector("dt")?.textContent ?? "", row.querySelector("dd")?.textContent ?? ""]))');
       wasmEvaluation = benchmarkReport;
     } catch (error) {
