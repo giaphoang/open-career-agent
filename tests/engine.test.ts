@@ -22,6 +22,17 @@ describe('career answers', () => {
     }
   });
 
+  it('greets recruiters without citing evidence or swallowing substantive questions', () => {
+    for (const greeting of ['Hi', 'hello!', 'Hey there', 'Good evening.', 'Xin chào', 'Chào!']) {
+      const result = answerQuestion(greeting, profile);
+      expect(result.kind, greeting).toBe('answer');
+      expect(result.evidence, greeting).toEqual([]);
+      expect(result.text, greeting).toMatch(/Ask about the candidate’s projects/);
+    }
+    expect(answerQuestion('Hello! Did Alex win a Nobel Prize?', profile)).toMatchObject({ kind: 'unknown', evidence: [] });
+    expect(answerQuestion('Hello, what is your salary?', profile)).toMatchObject({ kind: 'private', evidence: [] });
+  });
+
   it('provides only related evidence rather than affirming an unsupported claim', () => {
     const result = answerQuestion('Did you scale Java to a billion users?', profile);
     expect(result.kind).toBe('related');
