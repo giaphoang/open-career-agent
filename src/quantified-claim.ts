@@ -71,6 +71,11 @@ function quantities(text: string): Set<string> {
       .reduce((sum, word) => sum + (WORD_VALUES[word] ?? 0), 0);
     if (value > 0) found.add(quantityKey(value, 'count'));
   }
+  // A bare "one" is usually a request ("show one example"). Only recognize
+  // it as an asserted quantity when directly attached to a known count noun.
+  for (const match of text.matchAll(COUNTED_PHRASE)) {
+    if (match[1]!.toLowerCase() === 'one') found.add(quantityKey(1, 'count'));
+  }
   return found;
 }
 
@@ -78,7 +83,9 @@ function quantities(text: string): Set<string> {
 function countedUnits(text: string): Map<string, Set<string>> {
   const units = new Map<string, Set<string>>();
   for (const match of text.matchAll(COUNTED_PHRASE)) {
-    const count = [...quantities(match[1]!)].find(value => value.startsWith('count:'));
+    const count = match[1]!.toLowerCase() === 'one'
+      ? quantityKey(1, 'count')
+      : [...quantities(match[1]!)].find(value => value.startsWith('count:'));
     if (!count) continue;
     const noun = match[2]!.toLowerCase();
     const unit = noun === 'people' ? 'person' : noun.endsWith('s') ? noun.slice(0, -1) : noun;
