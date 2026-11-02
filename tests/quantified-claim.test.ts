@@ -67,6 +67,7 @@ describe('numeric premises in optional model FAQ suggestions', () => {
     expect(hasUnsupportedQuantifiedPremise('Did you lead one team?', oneTeam)).toBe(false);
     expect(hasUnsupportedQuantifiedPremise('Did you lead 1 team?', writtenTeam)).toBe(false);
     expect(hasUnsupportedQuantifiedPremise('Did you lead one engineer?', oneTeam)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you support one device?', oneTeam)).toBe(true);
     expect(hasUnsupportedQuantifiedPremise('Did you lead one team and one engineer?', oneTeam)).toBe(true);
     expect(hasUnsupportedQuantifiedPremise('Show one example of a technical project.', leadership)).toBe(false);
   });
