@@ -20,13 +20,16 @@ const SCALES: Readonly<Record<string, number>> = {
   hundred: 100, thousand: 1_000, million: 1_000_000,
   billion: 1_000_000_000, percent: 1,
 };
+// Compact recruiter scale notation (100k users, 1.5M events, 2B requests).
+// Keep abbreviations out of SPELLED_QUANTITY: these are digit suffixes.
+const ABBREVIATED_SCALES: Readonly<Record<string, number>> = { k: 1_000, m: 1_000_000, b: 1_000_000_000 };
 const WORDS = Object.keys(WORD_VALUES).join('|');
 const WORD_UNITS = 'one|two|three|four|five|six|seven|eight|nine';
 const SCALE_WORDS = Object.keys(SCALES).join('|');
 const SPELLED_QUANTITY = new RegExp(
   `\\b(?:${WORDS})(?:[\\s-]+(?:${WORD_UNITS}))?[\\s-]+(?:${SCALE_WORDS})\\b|\\bzero\\b`, 'gi',
 );
-const DIGIT_QUANTITY = /\b\d+(?:,\d{3})*(?:\.\d+)?(?:\s*(?:%|percent|hundred|thousand|million|billion))?(?![\p{L}\p{N}])/giu;
+const DIGIT_QUANTITY = /\b\d+(?:,\d{3})*(?:\.\d+)?(?:[kmb]|\s*(?:%|percent|hundred|thousand|million|billion))?(?![\p{L}\p{N}])/giu;
 
 // Standalone small written numbers also assert headcount, team size or scale.
 // Keep an isolated "one" unguarded: "show one example" is a common request,
@@ -39,7 +42,7 @@ const SMALL_SPELLED_QUANTITY = /\b(?:two|three|four|five|six|seven|eight|nine|te
 const COUNTED_UNIT = 'engineers?|developers?|teams?|projects?|users?|customers?|subscribers?|employees?|members?|people|persons?|events?|messages?|requests?|transactions?|systems?|services?|devices?|machines?|applications?|products?|years?|months?|dollars?';
 // Include magnitude suffixes for digit forms too (e.g., 90 thousand engineers):
 // otherwise a matching 90,000 count can bypass the count-noun safety check.
-const COUNTED_NUMBER = `(?:\\d+(?:,\\d{3})*(?:\\.\\d+)?(?:[\\s-]+(?:hundred|thousand|million|billion))?|(?:${WORDS})(?:[\\s-]+(?:${WORD_UNITS}))?(?:[\\s-]+(?:hundred|thousand|million|billion))?)`;
+const COUNTED_NUMBER = `(?:\\d+(?:,\\d{3})*(?:\\.\\d+)?(?:[kmb]|[\\s-]+(?:hundred|thousand|million|billion))?|(?:${WORDS})(?:[\\s-]+(?:${WORD_UNITS}))?(?:[\\s-]+(?:hundred|thousand|million|billion))?)`;
 const COUNTED_PHRASE = new RegExp(`\\b(${COUNTED_NUMBER})[\\s-]+(${COUNTED_UNIT})\\b`, 'gi');
 // Percentages and headcounts sharing a number are different assertions.
 // These coarse dimensions are a safety check, not factual entailment.
@@ -49,9 +52,9 @@ const quantityKey = (value: number, kind: QuantityKind): string => `${kind}:${va
 function quantities(text: string): Set<string> {
   const found = new Set<string>();
   for (const match of text.matchAll(DIGIT_QUANTITY)) {
-    const parts = match[0]!.toLowerCase().replace(/,/g, '').match(/^(\d+(?:\.\d+)?)(?:\s*(%|percent|hundred|thousand|million|billion))?$/);
+    const parts = match[0]!.toLowerCase().replace(/,/g, '').match(/^(\d+(?:\.\d+)?)(?:\s*(%|percent|hundred|thousand|million|billion|k|m|b))?$/);
     if (!parts) continue;
-    const scale = parts[2] === '%' ? 1 : (SCALES[parts[2] ?? ''] ?? 1);
+    const scale = parts[2] === '%' ? 1 : (SCALES[parts[2] ?? ''] ?? ABBREVIATED_SCALES[parts[2] ?? ''] ?? 1);
     const value = Number(parts[1]) * scale;
     if (Number.isFinite(value)) found.add(quantityKey(value, parts[2] === '%' || parts[2] === 'percent' ? 'percent' : 'count'));
   }
