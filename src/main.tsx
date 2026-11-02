@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import rawProfile from './data/profile.json';
 import { advanceInterview, answerQuestion, searchCareer, startInterview, validateProfile, type Answer, type Evidence, type InterviewState } from './engine';
 import { enableNativeModel, getNativeModelAvailability, type ModelAvailability, type NativeModel } from './browser-llm';
-import { hasUnsupportedQuantifiedPremise } from './quantified-claim';
+import { hasUnsupportedAbsolutePremise, hasUnsupportedQuantifiedPremise } from './quantified-claim';
 import type { WasmSearch } from './wasm-search';
 import { JobMatchPanel } from './JobMatchPanel';
 import { PerformancePanel } from './PerformancePanel';
@@ -97,7 +97,7 @@ function App() {
         if (controller.signal.aborted || index === null) return;
         const entry = profile.faq[index];
         // A related FAQ cannot corroborate a new headcount, percentage or scale claim.
-        if (!entry || hasUnsupportedQuantifiedPremise(value, entry)) return;
+        if (!entry || hasUnsupportedQuantifiedPremise(value, entry) || hasUnsupportedAbsolutePremise(value, entry)) return;
         const evidence = profile.evidence.filter(item => entry.evidenceIds.includes(item.id));
         setMessages(current => current.map(message => message.id === id ? { ...message, answer: infoAnswer(`I can’t verify the specific claim in your question. Related information from the public profile: ${entry.answer}`, entry.followUp, evidence), label: 'RELATED INFORMATION · NOT VERIFIED' } : message));
       }).catch(() => {}).finally(() => { if (pending.current === controller) { pending.current = null; setModelSearching(false); } });

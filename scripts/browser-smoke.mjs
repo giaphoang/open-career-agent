@@ -531,6 +531,26 @@ try {
       assert.equal(holdoutBaseline.paraphraseCorrect, heldOut.paraphrases.correctSelections, 'Holdout scores must reproduce WASM correct matches.');
       assert.equal(holdoutBaseline.unrelatedFalseRelated, heldOut.unrelated.selectedFaqs, 'Holdout scores must reproduce WASM false suggestions.');
       benchmarkReport.calibrationLimitation = 'The 106 older synthetic questions are calibration data. The 48 new questions are a first independent holdout; never optimize based on its results and then call it independent. Real-device validation is still absent.';
+
+      // A reproducible regression budget, not a claim of calibrated model accuracy.
+      // Sampled local runs cannot be compared to the entire 154-case population.
+      const completeCorpus = benchmarkReport.sampledCases === benchmarkReport.totalCorpusCases;
+      const checks = [
+        { name: 'calibration correct FAQ floor', observed: calibration.paraphrases.correctSelections, threshold: '>=23', pass: calibration.paraphrases.correctSelections >= 23 },
+        { name: 'calibration wrong FAQ ceiling', observed: calibration.paraphrases.wrongSelections, threshold: '<=7', pass: calibration.paraphrases.wrongSelections <= 7 },
+        { name: 'holdout paraphrase wrong FAQ ceiling', observed: heldOut.paraphrases.wrongSelections, threshold: '=0', pass: heldOut.paraphrases.wrongSelections === 0 },
+        { name: 'unrelated raw model suggestions', observed: benchmarkReport.summary.unrelated.selectedFaqs, threshold: '=0', pass: benchmarkReport.summary.unrelated.selectedFaqs === 0 },
+        { name: 'ambiguous displayed model suggestions', observed: benchmarkReport.summary.ambiguous.displayedFaqs, threshold: '=0', pass: benchmarkReport.summary.ambiguous.displayedFaqs === 0 },
+        { name: 'sensitive request refusal before inference', observed: benchmarkReport.results.filter(row => row.category === 'sensitive' && (row.wasmAttempt || !row.privateRefusal)).length, threshold: '=0', pass: benchmarkReport.results.every(row => row.category !== 'sensitive' || (!row.wasmAttempt && row.privateRefusal)) },
+      ];
+      benchmarkReport.qualityGate = {
+        basis: 'PR #30 full Chromium synthetic baseline (2026-11-02); future independent evidence is required',
+        evaluated: completeCorpus,
+        passed: completeCorpus ? checks.every(check => check.pass) : null,
+        checks,
+      };
+      if (completeCorpus) assert(benchmarkReport.qualityGate.passed,
+        'WASM synthetic quality regression: ' + checks.filter(check => !check.pass).map(check => check.name + ' (' + check.observed + ' ' + check.threshold + ')').join(', '));
       benchmarkReport.performancePanel = await evaluate('Object.fromEntries([...document.querySelectorAll(".performance-panel dl div")].map(row => [row.querySelector("dt")?.textContent ?? "", row.querySelector("dd")?.textContent ?? ""]))');
       wasmEvaluation = benchmarkReport;
     } catch (error) {
