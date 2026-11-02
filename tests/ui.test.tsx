@@ -97,16 +97,25 @@ it('supports evidence chat, guided role discovery, skill lookup, and clearing du
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   expect(native.select).toHaveBeenCalledOnce();
   expect(screen.queryByText(/Related information from the public profile/)).toBeNull();
+
+  // Compact numeric suffixes must receive the same fail-closed protection.
+  native.select.mockResolvedValueOnce(2);
+  fireEvent.change(privateField, { target: { value: 'Did you manage 100K engineers?' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(native.select).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText(/Related information from the public profile/)).toBeNull();
+
   fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
   let resolveSelection!: (value: number) => void;
   native.select.mockImplementation(() => new Promise<number>(resolve => { resolveSelection = resolve; }));
   const field = screen.getByLabelText('Ask a question about the portfolio');
   fireEvent.change(field, { target: { value: 'Have you won a Nobel Prize?' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question' }));
-  expect(native.select).toHaveBeenCalledTimes(2);
+  expect(native.select).toHaveBeenCalledTimes(3);
   expect(screen.getByText('Have you won a Nobel Prize?')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
-  expect((native.select.mock.calls[1]![2] as AbortSignal).aborted).toBe(true);
+  expect((native.select.mock.calls[2]![2] as AbortSignal).aborted).toBe(true);
   await act(async () => { resolveSelection(0); await Promise.resolve(); });
   expect(screen.queryByText('Have you won a Nobel Prize?')).toBeNull();
   expect(screen.queryByText(/Related information from the public profile/)).toBeNull();
