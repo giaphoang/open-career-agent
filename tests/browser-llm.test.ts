@@ -4,7 +4,6 @@ import { validateProfile } from '../src/engine';
 import rawProfile from './fixtures/sample-profile.json';
 
 const profile = validateProfile(rawProfile);
-const greeting = JSON.stringify({ kind: 'answer', text: 'Hello! Ask me about Alex Morgan’s public work.', factIds: ['candidate.name'] });
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
@@ -36,24 +35,34 @@ describe('browser Prompt API', () => {
     expect(session.destroy).toHaveBeenCalledOnce();
   });
 
-  it('uses a fixed friendly greeting rather than unverified model prose', async () => {
-    const clone = { prompt: vi.fn(async () => greeting), destroy: vi.fn() };
+  it('handles exact greetings without model inference, citations or career claims', async () => {
+    // Chrome can produce kind:answer with empty factIds for Hello. Never rely on
+    // the model to invent a fact reference for a harmless salutation.
+    const clone = { prompt: vi.fn(async () => JSON.stringify({ kind: 'answer', text: 'Anything', factIds: [] })), destroy: vi.fn() };
     const session = { clone: vi.fn(async () => clone), destroy: vi.fn() };
     vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
     const model = await enableNativeModel({ signal: new AbortController().signal });
-    expect(await model.reply('Hello!', profile, [], new AbortController().signal)).toMatchObject({ kind: 'answer', answer: { evidence: [], text: 'Hello! Ask about the candidate’s projects, skills, or experience. Please check the public sources.' } });
+    for (const question of ['Hello!', 'Hi there!', 'Good morning', 'Xin chào']) {
+      expect(await model.reply(question, profile, [], new AbortController().signal)).toEqual({
+        kind: 'answer', answer: { kind: 'answer', evidence: [],
+          text: 'Hello! Ask about the candidate’s projects, skills, or experience. Please check the public sources.' },
+        elapsedMs: 0,
+      });
+    }
+    expect(session.clone).not.toHaveBeenCalled();
+    expect(clone.prompt).not.toHaveBeenCalled();
     model.dispose();
   });
 
   it('uses a response schema accepted by Chrome without the unsupported uniqueItems keyword', async () => {
     const clone = { prompt: vi.fn(async (_input: string, options: { responseConstraint: { properties: { factIds: object } } }) => {
       if ('uniqueItems' in options.responseConstraint.properties.factIds) throw new DOMException('Unsupported JSON schema keyword: uniqueItems', 'NotSupportedError');
-      return greeting;
+      return JSON.stringify({ kind: 'answer', text: 'Order Service', factIds: ['projects.0'] });
     }), destroy: vi.fn() };
     const session = { clone: vi.fn(async () => clone), destroy: vi.fn() };
     vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
     const model = await enableNativeModel({ signal: new AbortController().signal });
-    expect(await model.reply('Hello!', profile, [], new AbortController().signal)).toMatchObject({ kind: 'answer' });
+    expect(await model.reply('Tell me about the Order Service.', profile, [], new AbortController().signal)).toMatchObject({ kind: 'answer' });
     expect(clone.destroy).toHaveBeenCalledOnce();
     model.dispose();
   });
