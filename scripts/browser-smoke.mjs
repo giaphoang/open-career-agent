@@ -315,12 +315,21 @@ try {
         // Use the worker's actual selected index to avoid false misclassification.
         const selectedFaq = ranking && Number.isSafeInteger(ranking.selectedIndex) && ranking.selectedIndex >= 0
           ? sample.faq[ranking.selectedIndex] : null;
-        if (selectedFaq) assert(evidenceLinks > 0 &&
+        // Ranking is the raw worker choice; the UI can conservatively suppress
+        // a related FAQ whose answer does not support a quantitative premise.
+        // Keep raw scores comparable across runs and measure displayed choices
+        // separately, without counting a suppressed suggestion as a UI claim.
+        const displayedFaq = selectedFaq && evidenceLinks > 0 &&
           finalText.includes('Related information from the public profile: ' + selectedFaq.answer) &&
-          finalText.includes('I can’t verify the specific claim'), 'A selected WASM FAQ must retain its exact authored answer, sources, and non-verification warning.');
+          finalText.includes('I can’t verify the specific claim') ? selectedFaq : null;
+        if (selectedFaq) assert(displayedFaq || (evidenceLinks === 0 &&
+          finalText.includes("I don't have enough public evidence")),
+          'A selected WASM FAQ must appear with its exact answer and sources or retain a safe evidence-free abstention.');
         const result = { split: row.split, category: row.category, question: row.question,
           ...(row.faqId ? { expectedFaqId: row.faqId } : {}),
           wasmAttempt: traced.started, returnedFaqId: selectedFaq?.id ?? null,
+          displayedFaqId: displayedFaq?.id ?? null,
+          guardedSuggestion: !!selectedFaq && !displayedFaq,
           privateRefusal: finalText.includes('I can only discuss information the candidate chose to publish'), evidenceLinks,
           ...(ranking ? { ranking: { ...ranking, bestFaqId: sample.faq[ranking.bestIndex]?.id ?? null } } : {}),
           elapsedUiMs: Number((performance.now() - startedAt).toFixed(1)) };
@@ -338,6 +347,8 @@ try {
         const actual = subset.filter(row => row.wasmAttempt);
         return [category, { checked: subset.length, modelAttempts: actual.length,
           selectedFaqs: actual.filter(row => row.returnedFaqId !== null).length,
+          displayedFaqs: actual.filter(row => row.displayedFaqId !== null).length,
+          guardedSuggestions: actual.filter(row => row.guardedSuggestion).length,
           correctSelections: actual.filter(row => row.returnedFaqId === row.expectedFaqId && !!row.expectedFaqId).length,
           wrongSelections: actual.filter(row => row.returnedFaqId !== null && row.returnedFaqId !== row.expectedFaqId).length }];
       }));
