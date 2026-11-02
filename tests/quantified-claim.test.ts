@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasUnsupportedQuantifiedPremise } from '../src/quantified-claim';
+import { hasUnsupportedAbsolutePremise, hasUnsupportedQuantifiedPremise } from '../src/quantified-claim';
 
 const leadership = {
   questions: ['Have you led a technical project?'],
@@ -183,4 +183,35 @@ describe('numeric premises in optional model FAQ suggestions', () => {
     expect(hasUnsupportedQuantifiedPremise('Which projects have you worked on?', compared)).toBe(false);
   });
 
+});
+
+describe('unsupported absolute career premises', () => {
+  const authored = {
+    questions: ['Have you written an operational runbook?'],
+    answer: 'The sample Order Service includes a runbook.',
+  };
+  it.each([
+    'Did your runbook eliminate every outage permanently?',
+    'Have you always prevented production incidents?',
+    'Can you guarantee all deployments succeed?',
+    'Have your services never experienced failures?',
+  ])('withholds an unverified absolute promise: %s', question => {
+    expect(hasUnsupportedAbsolutePremise(question, authored)).toBe(true);
+  });
+
+  it('keeps ordinary topic questions eligible, without authoring new claims', () => {
+    expect(hasUnsupportedAbsolutePremise('How are incidents investigated?', authored)).toBe(false);
+    expect(hasUnsupportedAbsolutePremise('Where is the troubleshooting runbook?', authored)).toBe(false);
+  });
+
+  it('accepts an explicitly authored qualifier but does not certify its external evidence', () => {
+    const qualified = { questions: ['What does the prototype always validate?'], answer: 'The example always checks its input.' };
+    expect(hasUnsupportedAbsolutePremise('What do you always validate?', qualified)).toBe(false);
+    expect(hasUnsupportedAbsolutePremise('Did you guarantee validation?', qualified)).toBe(true);
+  });
+
+  it('keeps a conservative guard for universal quantifiers without numbers', () => {
+    expect(hasUnsupportedAbsolutePremise('Did you support every customer?', authored)).toBe(true);
+    expect(hasUnsupportedAbsolutePremise('Can I view all the projects?', authored)).toBe(true);
+  });
 });
