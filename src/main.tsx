@@ -13,6 +13,7 @@ import './style.css';
 const profile = validateProfile(rawProfile);
 const isDemoProfile = isFictionalSampleProfile(profile.candidate);
 const prompts = profile.faq.flatMap(entry => entry.questions.slice(0, 1)).slice(0, 3);
+const setupPrompt = "Build my portfolio using https://github.com/tuannx/open-career-agent. Ask for my CV and public links. Use only approved public facts, don't invent details, test the site, and ask me before publishing.";
 type Message = { id: number; question?: string; answer: Answer; label?: string; pending?: boolean; modelStatus?: string };
 type ModelState = ModelAvailability | 'checking' | 'loading' | 'ready' | 'error';
 
@@ -37,6 +38,7 @@ function App() {
   const [interview, setInterview] = useState<InterviewState | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showStudio, setShowStudio] = useState(false);
+  const [promptCopyStatus, setPromptCopyStatus] = useState('');
   const [speaking, setSpeaking] = useState(false);
   const [modelState, setModelState] = useState<ModelState>('checking');
   const [wasmState, setWasmState] = useState<'off' | 'loading' | 'ready' | 'error'>('off');
@@ -51,6 +53,7 @@ function App() {
   const pending = useRef<AbortController | null>(null);
   const speechTimer = useRef<number | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
+  const setupPromptRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     const check = () => { void checkModelAvailability(); };
     const visible = () => { if (document.visibilityState === 'visible') check(); };
@@ -142,6 +145,16 @@ function App() {
     focusChat();
   }
   function clearChat() { cancelReply(); setMessages([]); setDecisionTimes([]); setInterview(null); setInput(''); inputRef.current?.focus(); }
+  async function copySetupPrompt() {
+    setPromptCopyStatus('');
+    try {
+      await navigator.clipboard.writeText(setupPrompt);
+      setPromptCopyStatus('Copied. Paste it into your AI assistant.');
+    } catch {
+      setupPromptRef.current?.focus(); setupPromptRef.current?.select();
+      setPromptCopyStatus('Copy the selected prompt manually.');
+    }
+  }
   function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); ask(input); }
   async function toggleModel() {
     if (startup.current || provider.current === 'wasm') return;
@@ -243,8 +256,10 @@ function App() {
           <summary>Make this portfolio your own <span aria-hidden="true">+</span></summary>
           <div className="developer-content">
             <h2>Create your own portfolio</h2>
-            <p>Copy the template and replace the sample profile with your experience.</p>
-            <section className="agent-onboarding" aria-label="Steps to make your own portfolio"><h3>Get started</h3><ol><li>Make a copy on GitHub.</li><li>Add your experience and public project links.</li><li>Review the details before publishing.</li></ol><p>Use the profile builder below, or ask an AI assistant to help with setup. Only include information you want to make public.</p></section><div className="developer-links"><a href="https://github.com/tuannx/open-career-agent/generate" target="_blank" rel="noreferrer">Copy template on GitHub ↗</a><a href="https://github.com/tuannx/open-career-agent/blob/main/docs/add-your-cv.md" target="_blank" rel="noreferrer">Read the setup guide ↗</a></div>
+            <p>Copy this prompt into your AI assistant.</p>
+            <div className="setup-prompt"><textarea ref={setupPromptRef} aria-label="Portfolio setup prompt" value={setupPrompt} readOnly rows={4}/><button type="button" onClick={() => void copySetupPrompt()}>Copy prompt</button><p role="status">{promptCopyStatus}</p></div>
+            <details className="template-options"><summary>More options</summary>
+            <div className="developer-links"><a href="https://github.com/tuannx/open-career-agent/generate" target="_blank" rel="noreferrer">Copy template on GitHub ↗</a><a href="https://github.com/tuannx/open-career-agent/blob/main/docs/add-your-cv.md" target="_blank" rel="noreferrer">Read the setup guide ↗</a></div>
             <section className="studio-section" aria-label="Make your own portfolio"><div className="studio-callout"><div><strong>Making your own portfolio?</strong><p>Turn your public career details into a starter profile.</p></div><button type="button" onClick={() => setShowStudio(value => !value)} aria-expanded={showStudio} aria-controls="studio-container">{showStudio ? 'Close profile builder' : 'Create a profile'} ↗</button></div><div id="studio-container">{showStudio && <CandidateStudio onClose={() => setShowStudio(false)}/>}</div></section>
             <div className="developer-settings">
               <h3>Optional search</h3>
@@ -252,6 +267,7 @@ function App() {
               <h3>Performance details</h3>
               <PerformancePanel decisionTimes={decisionTimes} wasmStartupMs={wasmStartupMs} wasmSearchTimes={wasmSearchTimes} wasmFaqCacheMissMs={wasmFaqCacheMissMs} wasmFaqCacheHitTimes={wasmFaqCacheHitTimes} />
             </div>
+            </details>
           </div>
         </details>
       </section>
