@@ -41,7 +41,7 @@ function checkFields(draft: Draft, stage: number): string | null {
     try {
       const source = new URL(draft.sourceUrl.trim());
       if (source.protocol !== 'https:' || source.username || source.password) return 'Evidence must use an HTTPS URL without credentials.';
-      if (isPlaceholderEvidenceUrl(source.href)) return 'Reserved example, test, localhost or direct IP-address URLs are not public evidence. Provide a public HTTPS domain source.';
+      if (isPlaceholderEvidenceUrl(source.href)) return 'Reserved, private-network, example, test, localhost or direct IP-address URLs are not public evidence. Provide a public HTTPS domain source.';
     } catch { return 'Enter a valid public HTTPS evidence URL.'; }
     const skills = draft.stack.split(',').map(item => item.trim()).filter(Boolean);
     if (!skills.length || skills.length > 30 || skills.some(item => item.length > 100)) return 'Enter 1–30 skills, each at most 100 characters.';
