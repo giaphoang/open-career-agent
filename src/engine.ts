@@ -128,6 +128,15 @@ const PRIVATE_REQUEST = /\b(salary|compensation|pay|wage|home address|street add
 const FOLLOW_UP = 'What role, technology stack, and scale are you hiring for?';
 export function isPrivateQuestion(question: string): boolean { return PRIVATE_REQUEST.test(normalize(question)); }
 
+/** An exact salutation needs no profile facts, retrieval or probabilistic model. */
+const GREETING_ONLY = /^(?:hi|hello|hey|good (?:morning|afternoon|evening)|xin chào|chào)(?:\s+there)?[!?.\s,]*$/i;
+export function deterministicGreeting(question: string): Answer | null {
+  if (!GREETING_ONLY.test(question.trim())) return null;
+  return { kind: 'answer',
+    text: 'Hello! Ask about the candidate’s projects, skills, or experience. Please check the public sources.',
+    evidence: [] };
+}
+
 export interface CareerSearchResult {
   skills: Profile['skills'];
   projects: Profile['projects'];
@@ -185,6 +194,8 @@ export function answerQuestion(question: string, profile: Profile): Answer {
   const query = normalize(question);
   if (!query) return { kind: 'unknown', text: 'Ask a question about the public profile or choose a suggested question.', evidence: [] };
   if (isPrivateQuestion(question)) return { kind: 'private', text: 'I can only discuss information the candidate chose to publish. Please contact them directly about private details.', evidence: [] };
+  const greeting = deterministicGreeting(question);
+  if (greeting) return greeting;
   const exact = profile.faq.find((entry) => entry.questions.some((item) => normalize(item) === query));
   if (exact) return { kind: 'answer', text: exact.answer, evidence: sources(exact.evidenceIds, profile), followUp: exact.followUp };
   const skillQuestions = ['what skills do you have', 'which skills do you have', 'what tools have you used', 'what is your technology stack'];

@@ -1,4 +1,4 @@
-import { isFictionalSampleProfile, isPrivateQuestion, type Answer, type Profile } from './engine';
+import { deterministicGreeting, isFictionalSampleProfile, isPrivateQuestion, type Answer, type Profile } from './engine';
 import { hasUnsupportedAbsolutePremise, hasUnsupportedQuantifiedPremise } from './quantified-claim';
 
 /**
@@ -117,12 +117,6 @@ function parseReply(response: string, question: string, profile: Profile, facts:
     hasUnsupportedAbsolutePremise(assertion, support))) return invalid;
   // Fact IDs are *retrieval suggestions*, not a proof that generated prose is entailed.
   // Never render `text`: a fabricated employer/role/achievement can carry valid IDs.
-  // Greetings are deterministic too, so a friendly response cannot add invented claims.
-  if (/^(?:hi|hello|hey|good (?:morning|afternoon|evening)|xin chào|chào)(?:[!?.\s]|$)/i.test(question.trim())) {
-    return { kind: 'answer', answer: { kind: 'answer',
-      text: 'Hello! Ask about the candidate’s projects, skills, or experience. Please check the public sources.',
-      evidence: [] }, elapsedMs };
-  }
   // An identity or contact field alone cannot substantiate a career assertion.
   const authored = selected.filter(fact => fact.id !== 'candidate.name' && fact.id !== 'candidate.contact');
   const displayed: PublicFact[] = [];
@@ -163,6 +157,10 @@ export async function enableNativeModel(options: { signal: AbortSignal; onProgre
       if (closed) return Promise.resolve({ kind: 'fallback', reason: 'unavailable' });
       if (signal.aborted) return Promise.resolve({ kind: 'fallback', reason: 'cancelled' });
       if (!question.trim() || question.length > 2000 || isPrivateQuestion(question)) return Promise.resolve({ kind: 'fallback', reason: 'invalid' });
+      // An exact greeting needs no fact IDs and cannot invent career claims.
+      // Skip model inference instead of requiring a probabilistic greeting reply.
+      const greeting = deterministicGreeting(question);
+      if (greeting) return Promise.resolve({ kind: 'answer', answer: greeting, elapsedMs: 0 });
       if (active) return Promise.resolve({ kind: 'fallback', reason: 'busy' });
       const beganAt = performance.now();
       const facts = publicFacts(profile);
