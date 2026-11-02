@@ -45,7 +45,7 @@ function httpsUrl(value: unknown, path: string): string {
 
 /** IANA-reserved example domains are placeholders, never evidence of a career claim. */
 export function isPlaceholderEvidenceUrl(url: string): boolean {
-  try { return /(^|\\.)example\\.(?:com|org|net)$/.test(new URL(url).hostname.toLowerCase()); }
+  try { return /(^|\.)example\.(?:com|org|net)$/.test(new URL(url).hostname.toLowerCase()); }
   catch { return false; }
 }
 
