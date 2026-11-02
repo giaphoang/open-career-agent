@@ -6,7 +6,7 @@ import { validateProfile } from '../src/engine';
 
 const draft = {
   name: 'Taylor Example', headline: 'Java engineer', location: 'Remote', summary: 'Built an order service.', availability: 'Open to discussions', contact: 'taylor@example.com',
-  sourceLabel: 'Public project', sourceUrl: 'https://example.org/project', projectName: 'Orders', projectRole: 'Engineer', projectSummary: 'Built an order service.', stack: 'Java, PostgreSQL, java',
+  sourceLabel: 'Public project', sourceUrl: 'https://github.com/tuannx/open-career-agent', projectName: 'Orders', projectRole: 'Engineer', projectSummary: 'Built an order service.', stack: 'Java, PostgreSQL, java',
   question: 'What Java work have you done?', answer: 'I built an order service.', followUp: 'What is your workload?',
 };
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -30,6 +30,7 @@ it('creates a schema-valid, entirely explicit starter with supporting references
 it('rejects missing fields and unsafe or credential-bearing links', () => {
   expect(createStarterProfile({ ...draft, answer: '  ' }).kind).toBe('invalid');
   expect(createStarterProfile({ ...draft, sourceUrl: 'javascript:alert(1)' }).kind).toBe('invalid');
+  expect(createStarterProfile({ ...draft, sourceUrl: 'https://docs.example.org/case-study' })).toMatchObject({ kind: 'invalid', message: expect.stringContaining('placeholders') });
   expect(createStarterProfile({ ...draft, sourceUrl: 'https://user:password@example.org/private' }).kind).toBe('invalid');
   expect(createStarterProfile({ ...draft, stack: ', , ' }).kind).toBe('invalid');
   expect(createStarterProfile({ ...draft, question: 'What salary did the project cost?' })).toMatchObject({ kind: 'invalid', message: expect.stringContaining('privacy guard') });
