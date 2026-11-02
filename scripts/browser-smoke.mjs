@@ -316,7 +316,7 @@ try {
           const predicted = ranking.bestCosine >= 0.48 &&
             (ranking.runnerUpCosine === null || ranking.bestCosine - ranking.runnerUpCosine >= 0.04)
             ? sample.faq[ranking.bestIndex]?.id ?? null : null;
-          assert.equal(predicted, matched?.id ?? null, 'Worker score trace must reproduce the current ranker's visible output.');
+          assert.equal(predicted, matched?.id ?? null, 'Worker score trace must reproduce the active ranking result.');
         }
         if (row.category === 'sensitive') assert(!result.wasmAttempt && result.privateRefusal, 'Sensitive query reached the model or was not refused: ' + row.question);
       }
