@@ -104,10 +104,10 @@ Only put information in the repository that you are comfortable publishing, incl
 
 The project's performance, accessibility and factual-grounding targets are goals, not benchmark results. Test the deployed site on your target devices and audit your own content and links. A citation is not independent verification of an achievement.
 
-## License
-
-MIT. See [LICENSE](LICENSE).
-
 ### Demo evidence integrity
 
 The bundled **Alex Morgan** profile is deliberately fictional and uses reserved `example.com` links; the recruiter page identifies this as a demo and marks its source links as **not verified**. These links are not proof of work. When replacing the sample with a real candidate, the profile validator rejects `example.com`, `example.org`, and `example.net` source URLs (including subdomains). Candidate Studio also blocks those placeholders before export. Use real, public HTTPS evidence links and inspect whether each source supports its linked claim; the application cannot automatically establish the truth of external pages.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
