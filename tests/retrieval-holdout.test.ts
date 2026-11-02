@@ -7,7 +7,7 @@ import holdout from './fixtures/retrieval-holdout.json';
 type Case = { question: string; faqId?: string };
 const categories = ['paraphrases', 'unrelated', 'sensitive', 'ambiguous'] as const;
 const normalize = (value: string) => value.toLocaleLowerCase('en-US').normalize('NFKC')
-  .replace(/[^\\p{L}\\p{N}+#]+/gu, ' ').trim().replace(/\\s+/g, ' ');
+  .replace(/[^\${letter}{L}\${letter}{N}+#]+/gu, ' ').trim().replace(/\${letter}+/g, ' ');
 
 describe('independent synthetic WASM relevance holdout', () => {
   const profile = validateProfile(sampleProfile);
