@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import profileData from './fixtures/sample-profile.json';
 import configuredProfile from '../src/data/profile.json';
-import { advanceInterview, answerQuestion, searchCareer, startInterview, validateProfile } from '../src/engine';
+import { advanceInterview, answerQuestion, isPlaceholderEvidenceUrl, searchCareer, startInterview, validateProfile } from '../src/engine';
 
 const profile = validateProfile(profileData);
 
@@ -66,6 +66,25 @@ describe('public profile validation', () => {
     const subdomain = structuredClone(withRealUrls);
     subdomain.evidence[0]!.url = 'https://docs.example.org/sample';
     expect(() => validateProfile(subdomain)).toThrow('Placeholder evidence URLs');
+  });
+
+  it('rejects reserved documentation, test and local hosts, including root-dot variants', () => {
+    const reserved = [
+      'https://example.com./work', 'https://docs.example.org./case',
+      'https://example./doc', 'https://docs.example.test/work',
+      'https://service.invalid/work', 'https://localhost/work',
+      'https://project.dev.localhost/work',
+    ];
+    for (const url of reserved) {
+      expect(isPlaceholderEvidenceUrl(url), url).toBe(true);
+      const candidate = structuredClone(profileData);
+      candidate.candidate.name = 'Real Candidate';
+      candidate.evidence[0]!.url = url;
+      expect(() => validateProfile(candidate), url).toThrow('Placeholder evidence URLs');
+    }
+    for (const url of ['https://github.com/tuannx/open-career-agent', 'https://notexample.org/work', 'https://example.com.evil.org/work', 'https://test.dev/work']) {
+      expect(isPlaceholderEvidenceUrl(url), url).toBe(false);
+    }
   });
 
   it('accepts a clean public profile', () => {
