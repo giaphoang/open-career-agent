@@ -111,7 +111,7 @@ const COMPARISON_KINDS: Readonly<Record<string, string>> = {
   nearly: 'near-lt', almost: 'near-lt',
 };
 const COMPARED_QUANTITY = new RegExp(
-  `\\b(${Object.keys(COMPARISON_KINDS).sort((a, b) => b.length - a.length).join('|')})[\\s-]+(${COUNTED_NUMBER}(?:\\s*(?:%|percent))?)(?![\\p{L}\\p{N}])`, 'gi',
+  `\\b(${Object.keys(COMPARISON_KINDS).sort((a, b) => b.length - a.length).join('|')})[\\s-]+(${COUNTED_NUMBER}(?:\\s*(?:%|percent))?)(?![\\p{L}\\p{N}])`, 'giu',
 );
 function comparedQuantities(text: string): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>();
