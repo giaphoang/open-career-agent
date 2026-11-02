@@ -275,6 +275,10 @@ try {
     const ax = await call('Accessibility.getFullAXTree');
     const names = ax.nodes.filter(n => n.role?.value === 'button').map(n => n.name?.value);
     assert(names.includes('Ask about experience') && names.includes('Send question'), 'Recruiter controls need accessible button names: ' + JSON.stringify(names));
+    // Installation precaches the full deterministic entry bundle before the
+    // browser loses connectivity; a page-only offline check misses this gate.
+    await until(() => evaluate('!!navigator.serviceWorker?.controller'),
+      'Offline static shell did not activate on ' + v.name);
     await call('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
     await evaluate('document.querySelector(".hero-example").click(); true');
     await until(() => evaluate('document.querySelectorAll(".exchange .sources a").length > 0'), 'Offline evidence-backed answer failed on ' + v.name);
@@ -317,6 +321,28 @@ try {
     await writeFile(join(output, v.name + '.png'), Buffer.from(screenshot.data, 'base64'));
     results.push({ viewport: v.name, keyboardSkipLink: skipLink, readability, ...layout, ...(mobileUsability ? { mobileUsability } : {}), ...keyboard, keyboardSubmitted: true, keyboardDeveloperDisclosure: true, screenshotHeight, evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length') });
   }
+
+  // Genuine cold *navigation* while offline: a prior network-loaded SPA must
+  // reopen with its static JS/CSS and deterministic evidence already cached.
+  // Chat input remains in memory only and must NOT survive this navigation.
+  const offlineNav = await call('Page.navigate', {
+    url: 'http://127.0.0.1:' + server.address().port + '/'
+  });
+  if (offlineNav.errorText) throw Error('Offline navigation failed: ' + offlineNav.errorText);
+  await until(() => evaluate('document.readyState === "complete" && !!document.querySelector("#question") && !!document.querySelector(".hero-example")'),
+    'Offline navigation could not render the deterministic app shell.');
+  assert.equal(await evaluate('document.querySelectorAll(".exchange").length'), 0,
+    'Reload must not persist the previous private recruiter conversation.');
+  await evaluate('document.querySelector(".hero-example").click(); true');
+  await until(() => evaluate('document.querySelectorAll(".exchange .sources a").length > 0'),
+    'New offline navigation did not return deterministic cited evidence.');
+  const offlineNavigation = {
+    viewport: 'mobile', staticShellLoaded: true, conversationReset: true,
+    evidenceLinks: await evaluate('document.querySelectorAll(".exchange .sources a").length'),
+    wasmOptIn: await evaluate('document.querySelector(".model-content button")?.textContent?.includes("Enable on-device model") ?? false')
+  };
+  assert(offlineNavigation.evidenceLinks > 0, 'Offline reload requires cited evidence.');
+  await call('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
 
   // Opt-in REAL model evaluation. This path downloads the actual quantized WASM
   // model, so regular smoke CI remains deterministic, offline, and fast.
@@ -580,7 +606,7 @@ try {
     await writeFile(join(output, 'wasm-relevance.json'), JSON.stringify(benchmarkReport, null, 2) + '\n');
     console.log('Real WASM evaluation summary: ' + JSON.stringify({ summary: benchmarkReport.summary, modelNetworkTransfer: benchmarkReport.modelNetworkTransfer, performancePanel: benchmarkReport.performancePanel }, null, 2));
   }
-  const report = { browser, host: { platform: process.platform, arch: process.arch, cpuModel: cpus()[0]?.model ?? 'unknown', logicalCores: cpus().length, visibleRamGiB: Number((totalmem() / 1024 ** 3).toFixed(1)) }, method: 'headless Chromium; WebGPU disabled; emulated responsive viewports; baseline smoke has no model enabled and goes offline after initial load; opt-in WASM evaluation reported separately', results, ...(wasmEvaluation ? { wasmEvaluation: { sampleCount: wasmEvaluation.sampledCases, summary: wasmEvaluation.summary } } : {}) };
+  const report = { browser, host: { platform: process.platform, arch: process.arch, cpuModel: cpus()[0]?.model ?? 'unknown', logicalCores: cpus().length, visibleRamGiB: Number((totalmem() / 1024 ** 3).toFixed(1)) }, method: 'headless Chromium; WebGPU disabled; emulated responsive viewports; baseline smoke checks both offline interaction and a new offline navigation without persisting chat; opt-in WASM evaluation reported separately', results, offlineNavigation, ...(wasmEvaluation ? { wasmEvaluation: { sampleCount: wasmEvaluation.sampledCases, summary: wasmEvaluation.summary } } : {}) };
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
   ws.close();
