@@ -252,7 +252,7 @@ try {
       corpusVersion: corpus.version, browser, node: process.version, platform: process.platform, architecture: process.arch,
       runnerHardware: { cpuModel: cpus()[0]?.model ?? 'unknown', logicalCores: cpus().length, visibleRamGiB: Number((totalmem() / 1024 ** 3).toFixed(1)) },
       model: 'Xenova/all-MiniLM-L6-v2', modelRevision: '751bff37182d3f1213fa05d7196b954e230abad9',
-      perCategory, totalCorpusCases: rows.length, calibrationCases: rows.filter(row => row.split === 'calibration').length,
+      perCategory, totalCorpusCases: categories.reduce((sum, category) => sum + corpus[category].length + holdout[category].length, 0), calibrationCases: rows.filter(row => row.split === 'calibration').length,
       holdoutCases: rows.filter(row => row.split === 'holdout').length, holdoutVersion: holdout.version,
       sampledCases: rows.length, results: [], limitations: 'Chromium desktop CI runner only; not a mobile device or WebGPU test. No remote-model download byte measurement. UI wall time includes rendering; worker timings are separately displayed. No validation that linked evidence substantiates claims.' };
     try {
