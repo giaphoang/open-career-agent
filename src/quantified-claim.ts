@@ -146,3 +146,22 @@ export function hasUnsupportedQuantifiedPremise(question: string, faq: Quantifie
   return [...countedUnits(question)].some(([count, units]) =>
     [...units].some(unit => !authoredUnits.get(count)?.has(unit)));
 }
+
+// An authored FAQ about a topic does not substantiate a universal promise.
+// Keep this independent from numeric guards: "every outage" and "never failed"
+// carry factual absolutes without necessarily containing a number.
+// Matching words only permit a related *authored* answer to be shown;
+// they never establish that an external source actually supports the promise.
+const ABSOLUTE_MARKER = /\b(?:all|every|always|never|permanent(?:ly)?|guarantee(?:d|s)?)\b/gi;
+function absoluteMarkers(text: string): Set<string> {
+  return new Set([...text.matchAll(ABSOLUTE_MARKER)].map(match => {
+    const word = match[0]!.toLowerCase();
+    return word.startsWith('guarantee') ? 'guarantee' : word.startsWith('permanent') ? 'permanent' : word;
+  }));
+}
+export function hasUnsupportedAbsolutePremise(question: string, faq: QuantifiedFaq): boolean {
+  const asserted = absoluteMarkers(question);
+  if (asserted.size === 0) return false;
+  const authored = absoluteMarkers([...faq.questions, faq.answer].join(' '));
+  return [...asserted].some(word => !authored.has(word));
+}
