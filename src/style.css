@@ -64,3 +64,5 @@ a{color:inherit}button,input{font:inherit}button,a{touch-action:manipulation}a:f
 .bubble,.user-bubble{font-size:15px}
 .hero-meta,.message-name,.chat-foot,.project-role,.timeline article>span{font-size:12px}
 .suggestions>span,.sources>span,.live-label{font-size:11px}
+.model-content{font-size:13px;color:#526b58}
+.model-content progress{display:block;width:100%;height:10px;margin:8px 0 14px;accent-color:#315b46}
