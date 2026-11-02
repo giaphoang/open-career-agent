@@ -74,13 +74,16 @@ describe('public profile validation', () => {
       'https://example./doc', 'https://docs.example.test/work',
       'https://service.invalid/work', 'https://localhost/work',
       'https://project.dev.localhost/work',
+      'https://127.0.0.1/work', 'https://192.168.1.10/work',
+      'https://[::1]/work', 'https://2130706433/work',
+      'https://8.8.8.8/work',
     ];
     for (const url of reserved) {
       expect(isPlaceholderEvidenceUrl(url), url).toBe(true);
       const candidate = structuredClone(profileData);
       candidate.candidate.name = 'Real Candidate';
       candidate.evidence[0]!.url = url;
-      expect(() => validateProfile(candidate), url).toThrow('Placeholder evidence URLs');
+      expect(() => validateProfile(candidate), url).toThrow(/Placeholder or IP-address evidence URLs/);
     }
     for (const url of ['https://github.com/tuannx/open-career-agent', 'https://notexample.org/work', 'https://example.com.evil.org/work', 'https://test.dev/work']) {
       expect(isPlaceholderEvidenceUrl(url), url).toBe(false);
