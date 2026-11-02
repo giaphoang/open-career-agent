@@ -43,10 +43,14 @@ function httpsUrl(value: unknown, path: string): string {
   return url;
 }
 
-/** IANA-reserved example domains are placeholders, never evidence of a career claim. */
+/** RFC 6761 documentation/test hosts cannot substantiate public career claims. */
 export function isPlaceholderEvidenceUrl(url: string): boolean {
-  try { return /(^|\.)example\.(?:com|org|net)$/.test(new URL(url).hostname.toLowerCase()); }
-  catch { return false; }
+  try {
+    // DNS hostnames can end in a root dot; this must not bypass the guard.
+    const host = new URL(url).hostname.toLowerCase().replace(/\.+$/, '');
+    return /(^|\.)example\.(?:com|org|net)$/.test(host) ||
+      /(^|\.)(?:example|test|invalid|localhost)$/.test(host);
+  } catch { return false; }
 }
 
 /** Keep the one intentionally fictional bundled sample usable as a demo. */
