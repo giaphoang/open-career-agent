@@ -60,6 +60,17 @@ describe('numeric premises in optional model FAQ suggestions', () => {
     expect(hasUnsupportedQuantifiedPremise('Did you process two billion events?', documented)).toBe(true);
   });
 
+  it('checks explicit one-unit premises without blocking a request for one example', () => {
+    const oneTeam = { questions: ['How many teams?'], answer: 'The sample involved 1 team and 2 engineers.' };
+    const writtenTeam = { questions: ['How many teams?'], answer: 'The sample involved one team and two engineers.' };
+    expect(hasUnsupportedQuantifiedPremise('Did you lead one team?', leadership)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you lead one team?', oneTeam)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you lead 1 team?', writtenTeam)).toBe(false);
+    expect(hasUnsupportedQuantifiedPremise('Did you lead one engineer?', oneTeam)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Did you lead one team and one engineer?', oneTeam)).toBe(true);
+    expect(hasUnsupportedQuantifiedPremise('Show one example of a technical project.', leadership)).toBe(false);
+  });
+
   it('does not confuse Java version numbers with an unrelated quantity', () => {
     expect(hasUnsupportedQuantifiedPremise('Have you used Java 17?', {
       questions: ['Which Java versions have you used?'],
