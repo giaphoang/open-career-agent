@@ -43,7 +43,7 @@ const COUNTED_UNIT = 'engineers?|developers?|teams?|projects?|users?|customers?|
 // Include magnitude suffixes for digit forms too (e.g., 90 thousand engineers):
 // otherwise a matching 90,000 count can bypass the count-noun safety check.
 const COUNTED_NUMBER = `(?:\\d+(?:,\\d{3})*(?:\\.\\d+)?(?:[kmb]|[\\s-]+(?:hundred|thousand|million|billion))?|(?:${WORDS})(?:[\\s-]+(?:${WORD_UNITS}))?(?:[\\s-]+(?:hundred|thousand|million|billion))?)`;
-const COUNTED_PHRASE = new RegExp(`\\b(${COUNTED_NUMBER})[\\s-]+(${COUNTED_UNIT})\\b`, 'gi');
+const COUNTED_PHRASE = new RegExp(`\\b(${COUNTED_NUMBER})(?:\\s*\\+)?[\\s-]+(${COUNTED_UNIT})\\b`, 'gi');
 // Percentages and headcounts sharing a number are different assertions.
 // These coarse dimensions are a safety check, not factual entailment.
 type QuantityKind = 'percent' | 'count';
@@ -116,6 +116,11 @@ const COMPARISON_KINDS: Readonly<Record<string, string>> = {
 const COMPARED_QUANTITY = new RegExp(
   `\\b(${Object.keys(COMPARISON_KINDS).sort((a, b) => b.length - a.length).join('|')})[\\s-]+(${COUNTED_NUMBER}(?:\\s*(?:%|percent))?)(?![\\p{L}\\p{N}])`, 'giu',
 );
+// Recruiter job requirements commonly use "5+ years" or "20K+ users".
+// A bare "5 years" FAQ must not validate this minimum claim.
+const SUFFIX_AT_LEAST_QUANTITY = new RegExp(
+  `\\b(${COUNTED_NUMBER})\\s*\\+(?![\\p{L}\\p{N}+])`, 'giu',
+);
 function comparedQuantities(text: string): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>();
   for (const match of text.matchAll(COMPARED_QUANTITY)) {
@@ -127,6 +132,15 @@ function comparedQuantities(text: string): Map<string, Set<string>> {
     for (const count of counts) {
       const kinds = result.get(count) ?? new Set<string>();
       kinds.add(kind);
+      result.set(count, kinds);
+    }
+  }
+  for (const match of text.matchAll(SUFFIX_AT_LEAST_QUANTITY)) {
+    const counts = quantities(match[1]!);
+    if (match[1]!.toLowerCase() === 'one') counts.add(quantityKey(1, 'count'));
+    for (const count of counts) {
+      const kinds = result.get(count) ?? new Set<string>();
+      kinds.add('gte');
       result.set(count, kinds);
     }
   }
