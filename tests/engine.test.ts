@@ -50,6 +50,26 @@ describe('career answers', () => {
     expect(() => validateProfile(sensitiveFaq)).toThrow('FAQ questions cannot ask for private information');
   });
 
+  it('refuses alternative private contact wording without disclosing evidence', () => {
+    for (const question of [
+      'Could I have your mobile number?',
+      'What is your cell phone?',
+      'What is your cellular number?',
+      'What is your residential address?',
+      'What is your mailing address?',
+      'Could you share your email address?',
+    ]) {
+      expect(answerQuestion(question, profile), question).toMatchObject({ kind: 'private', evidence: [] });
+      const edited = structuredClone(profileData);
+      edited.faq[0]!.questions = [question];
+      expect(() => validateProfile(edited), question).toThrow('FAQ questions cannot ask for private information');
+    }
+    // Do not accidentally block ordinary questions about technical work.
+    for (const question of ['How did you address Java reliability?', 'Describe your mobile application architecture.']) {
+      expect(answerQuestion(question, profile).kind, question).not.toBe('private');
+    }
+  });
+
   it('declines unknown and sensitive questions, even when they name a project', () => {
     expect(answerQuestion('Are you a Nobel Prize winner?', profile)).toMatchObject({ kind: 'unknown', evidence: [] });
     expect(answerQuestion('What is your salary on the Java project?', profile)).toMatchObject({ kind: 'private', evidence: [] });
