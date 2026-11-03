@@ -129,7 +129,7 @@ function sources(ids: string[], profile: Profile): Evidence[] {
   const wanted = new Set(ids);
   return profile.evidence.filter((source) => wanted.has(source.id));
 }
-const PRIVATE_REQUEST = /\b(salary|compensation|pay|wage|home address|street address|phone number|passport|social security|ssn|date of birth|birth date|birthdate|birth year|year of birth|birthday|dob|when were you born|how old|age|marital status|religion|medical|health|family|children|personal email)\b/i;
+const PRIVATE_REQUEST = /\b(salary|compensation|pay|wage|home address|street address|residential address|mailing address|phone number|mobile (?:phone|number)|cell(?:ular)? (?:phone|number)|cellphone|personal phone|email address|private email|passport|social security|ssn|date of birth|birth date|birthdate|birth year|year of birth|birthday|dob|when were you born|how old|age|marital status|religion|medical|health|family|children|personal email)\b/i;
 const FOLLOW_UP = 'What role, technology stack, and scale are you hiring for?';
 export function isPrivateQuestion(question: string): boolean { return PRIVATE_REQUEST.test(normalize(question)); }
 
