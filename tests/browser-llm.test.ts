@@ -178,7 +178,7 @@ describe('browser Prompt API', () => {
     const session = { clone: vi.fn(), destroy: vi.fn() };
     vi.stubGlobal('LanguageModel', { availability: async () => 'available', create: async () => session });
     const model = await enableNativeModel({ signal: new AbortController().signal });
-    for (const question of ['What is your private salary?', 'x'.repeat(2001), ' ']) {
+    for (const question of ['What is your private salary?', 'Could I have your mobile number?', 'What is your cell phone?', 'Could you share your email address?', 'What is your residential address?', 'x'.repeat(2001), ' ']) {
       expect(await model.reply(question, profile, [], new AbortController().signal)).toEqual({ kind: 'fallback', reason: 'invalid' });
     }
     const aborted = new AbortController(); aborted.abort();
