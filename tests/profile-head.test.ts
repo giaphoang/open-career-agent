@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { validateProfile } from '../src/engine';
-import { applyProfileHead, profileHeadTags, shortDescription, siteUrlFrom } from '../src/profile-head';
+import { applyProfileHead, isPreviewBuild, profileHeadTags, shortDescription, siteUrlFrom } from '../src/profile-head';
 
 const sample = validateProfile(JSON.parse(readFileSync(resolve('tests/fixtures/sample-profile.json'), 'utf8')));
 const html = readFileSync(resolve('index.html'), 'utf8');
@@ -28,6 +28,16 @@ describe('profile head tags', () => {
     expect(data['@type']).toBe('ProfilePage');
     expect(data.mainEntity).toMatchObject({ '@type': 'Person', name: sample.candidate.name, jobTitle: sample.candidate.headline });
     expect(data.mainEntity.knowsAbout).toEqual(sample.skills.map(skill => skill.name));
+  });
+
+  it('marks only PR preview builds noindex, keeping the public canonical link', () => {
+    expect(isPreviewBuild({ PAGES_PREVIEW: 'true' })).toBe(true);
+    expect(isPreviewBuild({ PAGES_PREVIEW: 'false' })).toBe(false);
+    expect(isPreviewBuild({})).toBe(false);
+    const preview = applyProfileHead(html, sample, 'https://owner.github.io/repo/', { preview: true });
+    expect(preview).toContain('<meta name="robots" content="noindex, nofollow" />');
+    expect(preview).toContain('<link rel="canonical" href="https://owner.github.io/repo/" />');
+    expect(applyProfileHead(html, sample, 'https://owner.github.io/repo/')).not.toContain('name="robots"');
   });
 
   it('omits address tags when no public site URL is known', () => {

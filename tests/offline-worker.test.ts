@@ -85,6 +85,9 @@ describe('versioned public offline shell', () => {
     expect((await worker.route(scope + 'api/search?q=private', 'GET', 'cors')).intercepted).toBe(false);
     expect((await worker.route(scope, 'POST')).intercepted).toBe(false);
     expect((await worker.route('https://cdn.example.net/model.onnx', 'GET', 'cors')).intercepted).toBe(false);
+    // A PR preview under the site keeps its own worker; never the public shell.
+    expect((await worker.route(scope + 'pr-preview/pr-7/')).intercepted).toBe(false);
+    expect((await worker.route(scope + 'pr-preview/pr-7/assets/app.js', 'GET', 'cors')).intercepted).toBe(false);
     const entries = [...shared.values()][0]!;
     expect([...entries.keys()]).toEqual([scope, scope + 'assets/app.js', scope + 'assets/app.css']);
   });

@@ -6,7 +6,7 @@ For a manual starter, open the site and select **Create a profile**. Using your 
 
 To apply the starter without a local development setup:
 
-1. Create your own repository using the template's **Use this template** button and enable **GitHub Actions** as the Pages source in repository settings.
+1. Create your own repository using the template's **Use this template** button, then follow the [Quick start](../README.md) to publish it: after the first run on `main`, set the Pages source to the `gh-pages` branch in repository settings.
 2. Open the downloaded `profile.json` in a plain-text editor and copy all of its contents. Review them first: everything will become public.
 3. In your repository, open `src/data/profile.json`, select the pencil icon, replace the existing contents with the copied JSON, and commit to `main`.
 4. Check that the **Build and deploy** workflow succeeds under **Actions**, then open the Pages URL in repository settings. Check the text and each source before sharing the site.

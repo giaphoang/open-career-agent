@@ -77,11 +77,21 @@ export function profileHeadTags(profile: Profile, siteUrl: string | null): strin
   ].filter(Boolean).join('\n    ');
 }
 
-/** Apply the profile's title, description and head tags to index.html. */
-export function applyProfileHead(html: string, profile: Profile, siteUrl: string | null): string {
+/** CI sets PAGES_PREVIEW=true for pull-request preview builds. */
+export function isPreviewBuild(env: { PAGES_PREVIEW?: string | undefined }): boolean {
+  return env.PAGES_PREVIEW?.trim() === 'true';
+}
+
+/**
+ * Apply the profile's title, description and head tags to index.html. A PR
+ * preview is marked noindex so search engines only list the public site; its
+ * canonical link still points at the public site.
+ */
+export function applyProfileHead(html: string, profile: Profile, siteUrl: string | null, options: { preview?: boolean } = {}): string {
+  const robots = options.preview ? '    <meta name="robots" content="noindex, nofollow" />\n' : '';
   return html
     .replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(pageTitle(profile))}</title>`)
     .replace(/<meta name="description" content="[^"]*" \/>/,
       `<meta name="description" content="${escapeHtml(shortDescription(profile.candidate.summary))}" />`)
-    .replace('</head>', `    ${profileHeadTags(profile, siteUrl)}\n  </head>`);
+    .replace('</head>', `${robots}    ${profileHeadTags(profile, siteUrl)}\n  </head>`);
 }
