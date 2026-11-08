@@ -1,0 +1,23 @@
+/* Clean one-column print and "Save as PDF": keep the profile, projects,
+   experience and evidence; drop the chat, controls and developer tools. */
+@media print {
+  @page { margin: 14mm 12mm; }
+  :root, body { background: #fff !important; color: #111 !important; }
+  .skip-link, .topbar nav, .top-contact, .hero-aside, .hero-actions, .hero-example, .hero-meta,
+  .chat-card, .avatar-button, .skill-picker, .developer-section, .footer a,
+  .project-content .tags, .project-art { display: none !important; }
+  .shell, .topbar { max-width: none !important; padding-left: 0 !important; padding-right: 0 !important; }
+  .topbar { height: auto !important; border: 0 !important; }
+  .hero, .workspace, .project-grid, .experience, .section-heading, .timeline article { display: block !important; }
+  .hero, .workspace, .work-section, .experience { padding-top: 0 !important; padding-bottom: 8pt !important; min-height: 0 !important; }
+  .profile-card { position: static !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; width: auto !important; }
+  h1 { font-size: 22pt !important; line-height: 1.15 !important; margin: 0 0 4pt !important; }
+  h2 { font-size: 15pt !important; margin: 10pt 0 4pt !important; }
+  h3 { font-size: 11.5pt !important; margin: 6pt 0 2pt !important; }
+  p, li, a { font-size: 10pt !important; line-height: 1.4 !important; }
+  .project-card, .timeline article { break-inside: avoid; page-break-inside: avoid; border: 0 !important; box-shadow: none !important;
+    background: none !important; padding: 0 0 8pt !important; margin: 0 !important; }
+  /* Printed evidence keeps its address, since a reader can't click paper. */
+  .sources a { text-decoration: none !important; }
+  .sources a[href^="https://"]::after { content: " — " attr(href); font-size: 8pt; color: #555; word-break: break-all; }
+}

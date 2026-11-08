@@ -33,6 +33,13 @@ const server = createServer(async (req, res) => {
   }
 });
 const pause = ms => new Promise(r => setTimeout(r, ms));
+// The demo banner and placeholder link labels exist only for the bundled
+// fictional sample (same test as isFictionalSampleProfile in src/engine.ts).
+// A real profile must show neither, so each check runs for its own case.
+const bundledCandidate = JSON.parse(readFileSync('src/data/profile.json', 'utf8')).candidate;
+const isDemoProfile = bundledCandidate.name === 'Alex Morgan' &&
+  bundledCandidate.location === 'Remote · Example profile' &&
+  bundledCandidate.summary.includes('This is fictional sample content');
 // Check computed browser colors, not CSS string assumptions. Only opaque,
 // solid-background recruiter text is sampled; this is not a full WCAG audit.
 function textContrastRatio(foreground, background) {
@@ -148,6 +155,7 @@ try {
         developerTop: dev ? Math.round(dev.getBoundingClientRect().top + scrollY) : -1,
         developerHeight: dev?.getBoundingClientRect().height ?? 0,
         heading: document.querySelector('h1')?.textContent ?? '',
+        demoBannerPresent: !!document.querySelector('.demo-banner'),
         demoDisclosure: (() => {
           const notice = document.querySelector('.demo-banner');
           if (!notice) return false;
@@ -168,7 +176,8 @@ try {
       };
     })()`);
     assert.match(layout.heading, /Ask about the work/i);
-    assert(layout.demoDisclosure, 'Fictional evidence must be disclosed in the first viewport on ' + v.name);
+    if (isDemoProfile) assert(layout.demoDisclosure, 'Fictional evidence must be disclosed in the first viewport on ' + v.name);
+    else assert(!layout.demoBannerPresent, 'A real profile must not show the fictional demo banner on ' + v.name);
     assert(layout.developerLast && layout.developerCollapsed && layout.formLabeled && layout.sendLabeled);
     assert(layout.developerHeight > 0 && layout.developerTop < layout.scrollHeight, 'Developer footer must actually be visible in page layout.');
     assert(layout.width <= v.width + 2 && layout.scrollWidth <= layout.width + 2, v.name + ' has horizontal overflow or incorrect viewport scale.');
@@ -183,7 +192,7 @@ try {
     // Included in artifacts/browser-smoke/report.json for regression evidence.
     const readabilitySpecs = [
       ['.hero-copy > p:not(.hero-role):not(.demo-banner)', 14],
-      ['.hero-copy > .demo-banner', 14],
+      ...(isDemoProfile ? [['.hero-copy > .demo-banner', 14]] : []),
       ['.hero-meta', 12],
       ['.chat-header p', 14],
       ['.chat-body .bubble', 14],
@@ -282,8 +291,9 @@ try {
     await call('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
     await evaluate('document.querySelector(".hero-example").click(); true');
     await until(() => evaluate('document.querySelectorAll(".exchange .sources a").length > 0'), 'Offline evidence-backed answer failed on ' + v.name);
-    assert(await evaluate('([...document.querySelectorAll(".exchange .sources a")].every(link => link.textContent?.includes("DEMO PLACEHOLDER — NOT VERIFIED")))'),
-      'Placeholder source links must be clearly marked non-verifying on ' + v.name);
+    const placeholderLabels = await evaluate('[...document.querySelectorAll(".exchange .sources a")].map(link => link.textContent?.includes("DEMO PLACEHOLDER — NOT VERIFIED"))');
+    if (isDemoProfile) assert(placeholderLabels.every(Boolean), 'Placeholder source links must be clearly marked non-verifying on ' + v.name);
+    else assert(!placeholderLabels.some(Boolean), 'A real profile must not label its sources as demo placeholders on ' + v.name);
     readability.push(assertReadableText(
       await evaluate("window.__careerTextSample('.exchange .sources a', 12)"), v.name));
     // Actual keyboard event path, not a JS .click(): activate the main recruiter

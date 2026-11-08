@@ -8,10 +8,15 @@ import type { WasmSearch } from './wasm-search';
 import { JobMatchPanel } from './JobMatchPanel';
 import { PerformancePanel } from './PerformancePanel';
 import { CandidateStudio } from './CandidateStudio';
+import { BuiltWith } from './BuiltWith';
 import './style.css';
+import './print.css';
 
 const profile = validateProfile(rawProfile);
 const isDemoProfile = isFictionalSampleProfile(profile.candidate);
+// The contact can be a public profile link (e.g. LinkedIn) or an email address.
+const contactIsLink = /^https:\/\//i.test(profile.candidate.contact);
+const contactHref = contactIsLink ? profile.candidate.contact : `mailto:${profile.candidate.contact}`;
 const prompts = profile.faq.flatMap(entry => entry.questions.slice(0, 1)).slice(0, 3);
 const setupPrompt = "Build my portfolio using https://github.com/tuannx/open-career-agent. Ask for my CV and public links. Use only approved public facts, don't invent details, test the site, and ask me before publishing.";
 type Message = { id: number; question?: string; answer: Answer; label?: string; pending?: boolean; modelStatus?: string };
@@ -209,7 +214,7 @@ function App() {
     : wasmState === 'loading' ? 'LOADING' : modelState === 'downloading' ? 'DOWNLOADING' : 'OFF';
   return <>
     <a className="skip-link" href="#conversation" onClick={event => { event.preventDefault(); focusChat(); }}>Skip to interview chat</a>
-    <header className="topbar"><a className="brand" href="#top"><span className="brand-mark">✳</span>{profile.candidate.name}</a><nav aria-label="Main navigation"><a href="#conversation">Interview</a><a href="#work">Projects</a><a href="#experience">Experience</a></nav><a className="top-contact" href={`mailto:${profile.candidate.contact}`}>Contact candidate <span aria-hidden="true">↗</span></a></header>
+    <header className="topbar"><a className="brand" href="#top"><span className="brand-mark">✳</span>{profile.candidate.name}</a><nav aria-label="Main navigation"><a href="#conversation">Interview</a><a href="#work">Projects</a><a href="#experience">Experience</a></nav><a className="top-contact" href={contactHref} {...(contactIsLink ? { target: '_blank', rel: 'noreferrer' } : {})}>Contact candidate <span aria-hidden="true">↗</span></a></header>
     <main id="top">
       <section className="hero shell" id="about">
         <div className="hero-copy">
@@ -251,6 +256,7 @@ function App() {
       </section>
       <section className="work-section shell" id="work"><div className="section-heading"><div><div className="eyebrow">SELECTED WORK <span className="slash">/</span> THE PROOF IS IN THE PROJECTS</div><h2>Made with intention<span>.</span></h2></div><p>A closer look at the projects, decisions, and details behind the experience.</p></div><div className="project-grid">{profile.projects.map((project, index) => <article className="project-card" key={project.id}><div className="project-head"><span>0{index + 1} &nbsp; / &nbsp; PROJECT</span><span>↗</span></div><div className="project-art" aria-hidden="true"><span>{['◈','◎','▦'][index % 3]}</span></div><div className="project-content"><div className="project-role">{project.role}</div><h3>{project.name}</h3><p>{project.summary}</p><div className="tags">{project.stack.map(item => <button type="button" key={item} onClick={() => findSkill(item)}>{item} ↗</button>)}</div><Sources ids={project.evidenceIds}/></div></article>)}</div></section>
       <section className="experience shell" id="experience"><div><div className="eyebrow">THE JOURNEY <span className="slash">/</span> EXPERIENCE</div><h2>Along the way<span>.</span></h2><p>Every chapter adds something to the work.</p></div><div className="timeline">{profile.timeline.map(item => <article key={`${item.period}-${item.title}`}><span>{item.period}</span><div><h3>{item.title}</h3><p>{item.organization} · {item.detail}</p><Sources ids={item.evidenceIds}/></div></article>)}</div></section>
+      <BuiltWith/>
       <section className="developer-section shell" id="for-developers" aria-label="Create your own portfolio">
         <details className="developer-tools">
           <summary>Make this portfolio your own <span aria-hidden="true">+</span></summary>

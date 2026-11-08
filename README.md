@@ -112,6 +112,10 @@ The CI install uses `npm ci --ignore-scripts` because this browser-only site doe
 
 GitHub Actions tests pull requests and manually dispatched runs on feature branches without publishing them. Only a run targeting `main` may upload or deploy the public GitHub Pages site, and only the deploy job receives Pages/OIDC write permissions.
 
+### Search, share and print
+
+The build writes the candidate's own page title and description, link-preview tags (Open Graph, Twitter card) and schema.org `ProfilePage` JSON-LD into `index.html`, all taken from `src/data/profile.json`. The public address comes from `SITE_URL`, or from `GITHUB_REPOSITORY` in GitHub Actions (`owner/repo` gives `https://owner.github.io/repo/`). Without either, the canonical and `og:url` tags are left out. Printing or saving as PDF gives one clean column with the profile, projects, experience and evidence URLs. A `candidate.contact` that starts with `https://` (for example LinkedIn) opens as a link, and an email address uses `mailto:`.
+
 ## Your data
 
 [`src/data/profile.json`](src/data/profile.json) is the source of the displayed profile and answers:
