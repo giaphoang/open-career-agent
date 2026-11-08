@@ -29,6 +29,9 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   // No cross-origin requests, form posts, chat data, model files or APIs.
   if (url.origin !== self.location.origin || !url.href.startsWith(SHELL_URL)) return;
+  // PR previews below this site have their own worker and must never get the
+  // public site's cached shell.
+  if (url.href.startsWith(SHELL_URL + 'pr-preview/')) return;
   if (request.mode === 'navigate') {
     // Network-first online; offline uses the version-consistent shell. Never
     // overwrite a cached HTML shell with markup referencing uncached assets.

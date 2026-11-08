@@ -8,8 +8,8 @@
 
 1. Create a repository from this template, or fork it. GitHub's **Use this template** button is available when the repository owner has enabled the template setting.
 2. Replace the sample in [`src/data/profile.json`](src/data/profile.json) with facts you want to publish. For a guided CV-to-site workflow, including a prompt for a coding assistant, see [Add your CV and update the site](docs/add-your-cv.md).
-3. In the repository's **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions**. Enable Actions if your repository has them disabled.
-4. Push your changes to `main`. The [deployment workflow](.github/workflows/deploy.yml) builds and publishes the site. Check the **Actions** tab for its result and the **Pages** settings for the published URL. For a project site it is normally `https://<username>.github.io/<repository>/`.
+3. Push your changes to `main`. The [deployment workflow](.github/workflows/deploy.yml) tests the site and publishes it to the `gh-pages` branch. Enable Actions if your repository has them disabled.
+4. After that first run, open **Settings → Pages → Build and deployment**, set **Source** to **Deploy from a branch**, then pick **gh-pages** and **/ (root)**. Check the **Pages** settings for the published URL. For a project site it is normally `https://<username>.github.io/<repository>/`. If a push to `gh-pages` is refused, set **Settings → Actions → General → Workflow permissions** to **Read and write permissions**.
 5. Open the published site, try several questions and links, and share it only after checking the result.
 
 You can edit JSON directly on GitHub with the pencil button; keep valid JSON syntax and preview all changes before committing. To avoid a broken public site, use a branch and test it locally before merging where practical.
@@ -110,7 +110,11 @@ This is **not** a full WCAG audit, first-ever-visit offline validation, WebGPU b
 
 The CI install uses `npm ci --ignore-scripts` because this browser-only site does not use the native `onnxruntime-node` binding: its transitive postinstall binary download can fail independently of the web build. CI still runs all tests, the deterministic evaluation, the production build and Chromium smoke. If you add a dependency that requires install scripts, review this policy before changing it.
 
-GitHub Actions tests pull requests and manually dispatched runs on feature branches without publishing them. Only a run targeting `main` may upload or deploy the public GitHub Pages site, and only the deploy job receives Pages/OIDC write permissions.
+### Pull request previews
+
+Every pull request from a branch of this repository gets its own preview at `https://<username>.github.io/<repository>/pr-preview/pr-<number>/`, and a bot comment on the PR links it. The preview is built only after the same tests, evaluation and browser smoke as `main` pass. It updates on each push and is removed when the PR is merged or closed. Previews are marked `noindex`, their canonical link points at the public site, and the public site's offline worker never serves them. Pull requests from forks are tested but never published, because fork code must not write to your site.
+
+Only a run on `main` updates the public site, at the root of the `gh-pages` branch, and it keeps the `pr-preview/` folder so open previews survive. Only the deploy and preview jobs can write to the repository; build and test jobs are read-only. A preview is public like the site itself, so review a PR's content before pushing it to a branch here.
 
 ### Search, share and print
 
