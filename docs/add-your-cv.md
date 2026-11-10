@@ -26,7 +26,7 @@ Edit [`src/data/profile.json`](../src/data/profile.json), preserving its existin
 1. Update `candidate` with the public details you selected.
 2. Replace `skills`, `projects`, and `timeline` with your own verified experience.
 3. For each public source, add an item to `evidence` with a unique `id`, a readable `label`, and its `url`. Use public HTTPS links to a project, code, demo, or other source that supports the corresponding claim.
-4. Reference those IDs in `candidate.headlineEvidenceIds`, `candidate.summaryEvidenceIds` and the relevant `evidenceIds` arrays. Each must contain at least one existing ID. Check that every link actually supports the associated text.
+4. Reference those IDs in `candidate.headlineEvidenceIds`, `candidate.summaryEvidenceIds` and the relevant `evidenceIds` arrays. Each must contain at least one existing ID. Check that every link actually supports the associated text. A project may add an optional `highlights` list (1 to 8 short lines) for how the work was done; each line is cited with that project's `evidenceIds`.
 5. Replace `faq` with questions recruiters may ask. Put supported facts in `answer`, link the relevant evidence IDs, and add a `followUp` to clarify the recruiter's needs. Provide alternative phrasings in `questions`.
 
 The privacy guard blocks questions containing terms such as salary, age, health, or personal contact information, even if an FAQ is configured for them. The profile validator rejects these questions so they cannot silently become unreachable. The keyword guard is conservative and does not detect every sensitive question.

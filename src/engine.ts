@@ -3,7 +3,7 @@ export interface Evidence { id: string; label: string; url: string }
 export interface Profile {
   candidate: { name: string; headline: string; headlineEvidenceIds: string[]; location: string; summary: string; summaryEvidenceIds: string[]; availability: string; contact: string };
   skills: { name: string; category: string; evidenceIds: string[] }[];
-  projects: { id: string; name: string; role: string; summary: string; stack: string[]; evidenceIds: string[] }[];
+  projects: { id: string; name: string; role: string; summary: string; stack: string[]; evidenceIds: string[]; highlights?: string[] }[];
   timeline: { period: string; title: string; organization: string; detail: string; evidenceIds: string[] }[];
   evidence: Evidence[];
   faq: { id: string; questions: string[]; answer: string; evidenceIds: string[]; followUp: string }[];
@@ -34,6 +34,17 @@ function cited(value: unknown, path: string): string[] {
   const ids = strings(value, path);
   if (!ids.length) throw new Error(`${path} must have at least one evidence reference`);
   return ids;
+}
+/** Optional short, skimmable lines about how a project was done. */
+const MAX_HIGHLIGHTS = 8;
+const MAX_HIGHLIGHT_LENGTH = 240;
+function highlights(value: unknown, path: string): string[] {
+  const lines = strings(value, path);
+  if (!lines.length || lines.length > MAX_HIGHLIGHTS) throw new Error(`${path} must have 1 to ${MAX_HIGHLIGHTS} lines`);
+  lines.forEach((line, index) => {
+    if (line.length > MAX_HIGHLIGHT_LENGTH) throw new Error(`${path}[${index}] must be at most ${MAX_HIGHLIGHT_LENGTH} characters`);
+  });
+  return lines;
 }
 function httpsUrl(value: unknown, path: string): string {
   const url = string(value, path);
@@ -90,8 +101,9 @@ export function validateProfile(value: unknown): Profile {
     return { name: string(o.name, `${path}.name`), category: string(o.category, `${path}.category`), evidenceIds: cited(o.evidenceIds, `${path}.evidenceIds`) };
   });
   const projects = array(root.projects, 'projects', (item, path) => {
-    const o = object(item, path, ['id', 'name', 'role', 'summary', 'stack', 'evidenceIds']);
-    return { id: string(o.id, `${path}.id`), name: string(o.name, `${path}.name`), role: string(o.role, `${path}.role`), summary: string(o.summary, `${path}.summary`), stack: strings(o.stack, `${path}.stack`), evidenceIds: cited(o.evidenceIds, `${path}.evidenceIds`) };
+    const o = object(item, path, ['id', 'name', 'role', 'summary', 'stack', 'evidenceIds', 'highlights']);
+    const project = { id: string(o.id, `${path}.id`), name: string(o.name, `${path}.name`), role: string(o.role, `${path}.role`), summary: string(o.summary, `${path}.summary`), stack: strings(o.stack, `${path}.stack`), evidenceIds: cited(o.evidenceIds, `${path}.evidenceIds`) };
+    return o.highlights === undefined ? project : { ...project, highlights: highlights(o.highlights, `${path}.highlights`) };
   });
   const timeline = array(root.timeline, 'timeline', (item, path) => {
     const o = object(item, path, ['period', 'title', 'organization', 'detail', 'evidenceIds']);

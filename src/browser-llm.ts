@@ -85,6 +85,11 @@ function publicFacts(profile: Profile): PublicFact[] {
     // A question may assert an invented premise; it is not an authored fact.
     add(`faq.${index}`, faq.answer, faq.evidenceIds);
   }
+  // Highlights come last so they never crowd out projects, timeline or FAQ.
+  // Each line is its own fact, so a long list never drops its project.
+  for (const [index, project] of profile.projects.slice(0, 20).entries()) {
+    for (const [line, text] of (project.highlights ?? []).entries()) add(`projects.${index}.highlights.${line}`, `${project.name}: ${text}`, project.evidenceIds);
+  }
   return facts;
 }
 
