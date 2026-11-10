@@ -5,7 +5,7 @@
     "headlineEvidenceIds": ["github-profile", "portfolio"],
     "location": "University of Massachusetts Amherst · B.S. Computer Science, Mathematics minor",
     "summary": "I build reliable backend systems and AI infrastructure, with experience spanning multi-agent RAG, event-driven microservices, real-time applications, cloud deployment, and edge AI. I enjoy turning complex systems into dependable products with measurable performance and strong automated testing.",
-    "summaryEvidenceIds": ["github-profile", "portfolio", "patrollens", "queuemaxxing"],
+    "summaryEvidenceIds": ["github-profile", "portfolio", "servicetalk", "patrollens", "queuemaxxing"],
     "availability": "Open to software engineering and AI/ML opportunities",
     "contact": "github.com/giaphoang · linkedin.com/in/giapnh"
   },
@@ -23,6 +23,15 @@
     {"name":"Testing and CI/CD", "category":"Engineering Practice", "evidenceIds":["opsbook","cicd","github-profile"]}
   ],
   "projects": [
+    {
+      "id":"servicetalk",
+      "name":"Apple ServiceTalk Contributions",
+      "role":"Open-source contributor · Distributed Systems & Networking",
+      "summary":"Contributions to Apple's ServiceTalk Java networking framework, spanning buffer APIs, DNS discovery correctness, HTTP request metadata, and gRPC error handling.",
+      "stack":["Java","Netty","gRPC","Protocol Buffers","JUnit 5"],
+      "highlights":["PR #3696 adds a public Buffer.toByteArray API, migrates serializers and Jersey callers, and reports 1,027 tests across ten affected modules.","PR #3694 adds deterministic DNS observer and polling regressions across second boundaries; the author reports 40,446 repository-wide test cases passing.","PR #3697 populates http/https schemes for single-address client requests based on SSL configuration.","Merged PR #3695 demonstrates application exception mapping to gRPC INVALID_ARGUMENT responses with BadRequest details."],
+      "evidenceIds":["servicetalk","servicetalk-pr-3696","servicetalk-pr-3694","servicetalk-pr-3697","servicetalk-pr-3695"]
+    },
     {
       "id":"patrollens",
       "name":"PatrolLens",
@@ -76,7 +85,7 @@
     }
   ],
   "timeline": [
-    {"period":"Oct 2026 — Present", "title":"Open-Source Contributor · Distributed Systems & Networking", "organization":"Apple", "detail":"Contributing Java and Netty improvements, deterministic regression tests, shared buffer APIs, and structured gRPC error handling for distributed systems projects.", "evidenceIds":["github-profile","portfolio"]},
+    {"period":"Oct 2026 — Present", "title":"Open-Source Contributor · Distributed Systems & Networking", "organization":"Apple · ServiceTalk", "detail":"Contributing Java and Netty improvements to Apple's ServiceTalk framework. Highlighted PR #3696 adds a public Buffer.toByteArray API across serializers and Jersey with 1,027 tests across ten modules; other PRs address DNS TTL boundaries, HTTP schemes, and gRPC error mapping.", "evidenceIds":["servicetalk","servicetalk-pr-3696","servicetalk-pr-3694","servicetalk-pr-3697","servicetalk-pr-3695"]},
     {"period":"Jan 2025 — Sep 2025", "title":"Software Engineer Intern · Agentic AI & Platform Engineering", "organization":"Finbud AI", "detail":"Built multi-agent RAG workflows, backend tests, cloud deployment automation, and instrumented model inference for financial analysis systems.", "evidenceIds":["fin-agents","layout-rag","github-profile"]},
     {"period":"Aug 2024 — Sep 2024", "title":"Software Engineer Intern · Backend Development", "organization":"FPT Smart Cloud", "detail":"Built event-driven Go and Kafka services for real-time financial-news processing and containerized backend deployment.", "evidenceIds":["queuemaxxing","github-profile"]},
     {"period":"Jun 2023 — Sep 2023", "title":"Software Engineer Intern · Backend Development", "organization":"FPT Software", "detail":"Developed real-time ASP.NET Core services, Redis-cached MVC features, and automated WebAPI regression tests for enterprise workflows.", "evidenceIds":["opsbook","github-profile"]},
@@ -84,6 +93,11 @@
   ],
   "evidence": [
     {"id":"github-profile", "label":"Giap Nguyen · GitHub profile", "url":"https://github.com/giaphoang"},
+    {"id":"servicetalk", "label":"Apple ServiceTalk · public repository", "url":"https://github.com/apple/servicetalk"},
+    {"id":"servicetalk-pr-3696", "label":"ServiceTalk PR #3696 · Buffer API", "url":"https://github.com/apple/servicetalk/pull/3696"},
+    {"id":"servicetalk-pr-3694", "label":"ServiceTalk PR #3694 · DNS TTL regressions", "url":"https://github.com/apple/servicetalk/pull/3694"},
+    {"id":"servicetalk-pr-3697", "label":"ServiceTalk PR #3697 · HTTP request schemes", "url":"https://github.com/apple/servicetalk/pull/3697"},
+    {"id":"servicetalk-pr-3695", "label":"ServiceTalk PR #3695 · gRPC error mapping · merged", "url":"https://github.com/apple/servicetalk/pull/3695"},
     {"id":"portfolio", "label":"Giap Nguyen · personal portfolio", "url":"https://giap-nguyen.vercel.app/"},
     {"id":"patrollens", "label":"PatrolLens · public repository", "url":"https://github.com/giaphoang/PatrolLens"},
     {"id":"queuemaxxing", "label":"Queuemaxxing · public repository", "url":"https://github.com/giaphoang/Queuemaxxing"},
@@ -94,6 +108,7 @@
     {"id":"fin-agents", "label":"Financial agents deployment · public repository", "url":"https://github.com/giaphoang/fin-agents-docker"}
   ],
   "faq": [
+    {"id":"servicetalk", "questions":["What did Giap contribute to Apple ServiceTalk?","Can I see Giap's ServiceTalk PRs?"], "answer":"Giap contributes to Apple's ServiceTalk Java networking framework. Highlighted PR #3696 adds a public Buffer.toByteArray API and migrates serializers and Jersey callers; PRs #3694 and #3697 cover deterministic DNS TTL behavior and HTTP request schemes. PR #3695, which demonstrates gRPC application exception mapping, is merged.", "evidenceIds":["servicetalk","servicetalk-pr-3696","servicetalk-pr-3694","servicetalk-pr-3697","servicetalk-pr-3695"], "followUp":"Would you like to discuss the buffer API, DNS timing, HTTP metadata, or gRPC mapping?"},
     {"id":"focus", "questions":["What kind of engineer is Giap?","What is Giap's technical focus?"], "answer":"Giap is a software engineer focused on AI/ML infrastructure, distributed systems, backend reliability, and cloud deployment. His public work includes multimodal search, durable Go queues, real-time platforms, and layout-aware RAG.", "evidenceIds":["github-profile","patrollens","queuemaxxing","layout-rag"], "followUp":"Which part of the stack is most important for this role?"},
     {"id":"ai", "questions":["What AI experience does Giap have?","Has Giap built RAG systems?"], "answer":"Giap's public projects include PatrolLens, an AI-powered multimodal evidence investigation system, and Layout-Aware RAG for long documents with tables and figures. His resume also describes multi-agent RAG and on-device AI work.", "evidenceIds":["patrollens","layout-rag","fin-agents"], "followUp":"Are you looking for model, retrieval, evaluation, or platform ownership?"},
     {"id":"backend", "questions":["What backend systems has Giap built?","Does Giap have distributed-systems experience?"], "answer":"His public work includes a durable Go work queue with PostgreSQL CDC, an ASP.NET Core real-time booking platform, and backend-focused systems projects across Go, Java, C#, Python, and TypeScript.", "evidenceIds":["queuemaxxing","opsbook","github-profile"], "followUp":"What reliability or scale constraints should we discuss?"},
