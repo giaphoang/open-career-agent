@@ -1,58 +1,106 @@
 {
   "candidate": {
-    "name": "Alex Morgan",
-    "headline": "Senior Software Engineer · Distributed Systems",
-    "headlineEvidenceIds": ["orders", "events"],
-    "location": "Remote · Example profile",
-    "summary": "I build reliable services and enjoy making complex systems easier to operate. This is fictional sample content: replace it with your own verified public information.",
-    "summaryEvidenceIds": ["orders", "events"],
-    "availability": "Open to relevant conversations",
-    "contact": "hello@example.com"
+    "name": "Giap Nguyen",
+    "headline": "Software Engineer · AI/ML & Distributed Systems",
+    "headlineEvidenceIds": ["github-profile", "portfolio"],
+    "location": "University of Massachusetts Amherst · B.S. Computer Science, Mathematics minor",
+    "summary": "I build reliable backend systems and AI infrastructure, with experience spanning multi-agent RAG, event-driven microservices, real-time applications, cloud deployment, and edge AI. I enjoy turning complex systems into dependable products with measurable performance and strong automated testing.",
+    "summaryEvidenceIds": ["github-profile", "portfolio", "patrollens", "queuemaxxing"],
+    "availability": "Open to software engineering and AI/ML opportunities",
+    "contact": "github.com/giaphoang · linkedin.com/in/giapnh"
   },
   "skills": [
-    {"name":"Java", "category":"Languages", "evidenceIds":["orders"]},
-    {"name":"TypeScript", "category":"Languages", "evidenceIds":["dashboard"]},
-    {"name":"PostgreSQL", "category":"Data", "evidenceIds":["orders"]},
-    {"name":"AWS", "category":"Cloud", "evidenceIds":["orders"]},
-    {"name":"System design", "category":"Practice", "evidenceIds":["orders","events"]},
-    {"name":"Accessibility", "category":"Practice", "evidenceIds":["dashboard"]}
+    {"name":"Java", "category":"Languages", "evidenceIds":["github-profile","opsbook"]},
+    {"name":"Python", "category":"Languages", "evidenceIds":["github-profile","layout-rag","patrollens"]},
+    {"name":"Go", "category":"Languages", "evidenceIds":["github-profile","queuemaxxing"]},
+    {"name":"TypeScript", "category":"Languages", "evidenceIds":["github-profile","meal-line"]},
+    {"name":"C# / ASP.NET Core", "category":"Backend", "evidenceIds":["opsbook"]},
+    {"name":"React / Next.js", "category":"Frontend", "evidenceIds":["github-profile","meal-line"]},
+    {"name":"RAG and multi-agent systems", "category":"AI/ML", "evidenceIds":["layout-rag","patrollens","fin-agents"]},
+    {"name":"AWS and Azure", "category":"Cloud", "evidenceIds":["cicd","github-profile"]},
+    {"name":"Docker, Kubernetes and Terraform", "category":"Infrastructure", "evidenceIds":["cicd","github-profile"]},
+    {"name":"PostgreSQL, Redis and Kafka", "category":"Data & Messaging", "evidenceIds":["opsbook","queuemaxxing","github-profile"]},
+    {"name":"Testing and CI/CD", "category":"Engineering Practice", "evidenceIds":["opsbook","cicd","github-profile"]}
   ],
   "projects": [
-    {"id":"orders", "name":"Order Service", "role":"Technical lead", "summary":"A Java order service with a documented asynchronous processing design and operational runbook.", "stack":["Java","PostgreSQL","AWS"], "evidenceIds":["orders"]},
-    {"id":"events", "name":"Event Pipeline", "role":"Software engineer", "summary":"A small event processing prototype exploring retries, idempotency, and failure recovery.", "stack":["Java","Messaging"], "evidenceIds":["events"]},
-    {"id":"dashboard", "name":"Operations Dashboard", "role":"Frontend engineer", "summary":"A TypeScript dashboard prototype designed around keyboard access and clear status information.", "stack":["TypeScript","React"], "evidenceIds":["dashboard"]}
+    {
+      "id":"patrollens",
+      "name":"PatrolLens",
+      "role":"AI/ML engineer",
+      "summary":"An AI-powered evidence investigation system for law-enforcement bodycam footage with multimodal search and timestamped event retrieval.",
+      "stack":["Python","Multimodal AI","Search"],
+      "highlights":["Combines multimodal search with timestamped event retrieval for evidence investigation.","The public repository documents the system's investigation workflow and implementation."],
+      "evidenceIds":["patrollens"]
+    },
+    {
+      "id":"queuemaxxing",
+      "name":"Queuemaxxing",
+      "role":"Backend engineer",
+      "summary":"A durable Go work queue with a PostgreSQL CDC connector, replication buffering, and local crash-recovery support.",
+      "stack":["Go","PostgreSQL","CDC"],
+      "highlights":["Implements durable queue processing and PostgreSQL change-data-capture integration in one local binary.","Focuses on buffering, persistence, and recovery without requiring AWS infrastructure."],
+      "evidenceIds":["queuemaxxing"]
+    },
+    {
+      "id":"opsbook",
+      "name":"OpsBook Real-Time Booking Platform",
+      "role":"Software engineer",
+      "summary":"A real-time booking operations platform using ASP.NET Core SignalR, Redis-cached MVC pages, idempotent payment workflows, and automated tests.",
+      "stack":["C#","ASP.NET Core","SignalR","Redis","MSTest"],
+      "highlights":["Uses SignalR push delivery for real-time updates instead of polling.","Includes Redis response caching, idempotent payment workflows, and 47 MSTest tests as documented in the public repository."],
+      "evidenceIds":["opsbook"]
+    },
+    {
+      "id":"layout-rag",
+      "name":"Layout-Aware RAG",
+      "role":"AI engineer",
+      "summary":"A document-processing and retrieval project designed for long documents containing tables, figures, and complex layouts.",
+      "stack":["Python","Document AI","RAG"],
+      "evidenceIds":["layout-rag"]
+    },
+    {
+      "id":"meal-line",
+      "name":"MealLine",
+      "role":"Full-stack engineer",
+      "summary":"A multilingual food-assistance platform combining conversational intake, shopping lists, inventory tracking, delivery coordination, and pantry analytics.",
+      "stack":["TypeScript","Web Applications","Data Workflows"],
+      "evidenceIds":["meal-line"]
+    },
+    {
+      "id":"cicd",
+      "name":"CI/CD Pipeline on AWS",
+      "role":"Cloud engineer",
+      "summary":"A hands-on infrastructure project covering Docker, Terraform, GitHub Actions, and AWS deployment workflows.",
+      "stack":["Terraform","Docker","GitHub Actions","AWS"],
+      "evidenceIds":["cicd"]
+    }
   ],
   "timeline": [
-    {"period":"2022 — Present", "title":"Senior Software Engineer", "organization":"Example Company", "detail":"Led the design of the Order Service sample project.", "evidenceIds":["orders"]},
-    {"period":"2019 — 2022", "title":"Software Engineer", "organization":"Example Studio", "detail":"Built the Event Pipeline sample prototype.", "evidenceIds":["events"]}
+    {"period":"Oct 2026 — Present", "title":"Open-Source Contributor · Distributed Systems & Networking", "organization":"Apple", "detail":"Contributing Java and Netty improvements, deterministic regression tests, shared buffer APIs, and structured gRPC error handling for distributed systems projects.", "evidenceIds":["github-profile","portfolio"]},
+    {"period":"Jan 2025 — Sep 2025", "title":"Software Engineer Intern · Agentic AI & Platform Engineering", "organization":"Finbud AI", "detail":"Built multi-agent RAG workflows, backend tests, cloud deployment automation, and instrumented model inference for financial analysis systems.", "evidenceIds":["fin-agents","layout-rag","github-profile"]},
+    {"period":"Aug 2024 — Sep 2024", "title":"Software Engineer Intern · Backend Development", "organization":"FPT Smart Cloud", "detail":"Built event-driven Go and Kafka services for real-time financial-news processing and containerized backend deployment.", "evidenceIds":["queuemaxxing","github-profile"]},
+    {"period":"Jun 2023 — Sep 2023", "title":"Software Engineer Intern · Backend Development", "organization":"FPT Software", "detail":"Developed real-time ASP.NET Core services, Redis-cached MVC features, and automated WebAPI regression tests for enterprise workflows.", "evidenceIds":["opsbook","github-profile"]},
+    {"period":"Expected May 2026", "title":"B.S. Computer Science · Mathematics minor", "organization":"University of Massachusetts Amherst", "detail":"GPA: 3.75/4.0.", "evidenceIds":["portfolio"]}
   ],
   "evidence": [
-    {"id":"orders", "label":"Order Service · example case study", "url":"https://example.com/order-service"},
-    {"id":"events", "label":"Event Pipeline · example case study", "url":"https://example.com/event-pipeline"},
-    {"id":"dashboard", "label":"Operations Dashboard · example case study", "url":"https://example.com/operations-dashboard"}
+    {"id":"github-profile", "label":"Giap Nguyen · GitHub profile", "url":"https://github.com/giaphoang"},
+    {"id":"portfolio", "label":"Giap Nguyen · personal portfolio", "url":"https://giap-nguyen.vercel.app/"},
+    {"id":"patrollens", "label":"PatrolLens · public repository", "url":"https://github.com/giaphoang/PatrolLens"},
+    {"id":"queuemaxxing", "label":"Queuemaxxing · public repository", "url":"https://github.com/giaphoang/Queuemaxxing"},
+    {"id":"opsbook", "label":"OpsBook Real-Time Booking Platform · public repository", "url":"https://github.com/giaphoang/opsbook-realtime-booking-platform"},
+    {"id":"layout-rag", "label":"Layout-Aware RAG · public repository", "url":"https://github.com/giaphoang/Layout-Aware-RAG"},
+    {"id":"meal-line", "label":"MealLine · public repository", "url":"https://github.com/giaphoang/MealLine"},
+    {"id":"cicd", "label":"CI/CD Pipeline on AWS · public repository", "url":"https://github.com/giaphoang/CI-CD-Pipeline-on-AWS"},
+    {"id":"fin-agents", "label":"Financial agents deployment · public repository", "url":"https://github.com/giaphoang/fin-agents-docker"}
   ],
   "faq": [
-    {"id":"java", "questions":["Have you designed scalable Java systems?","What Java experience do you have?"], "answer":"The sample Order Service is a Java service with an asynchronous processing design. Its case study describes the design; it does not provide a verified scale figure.", "evidenceIds":["orders"], "followUp":"Are you prioritizing throughput, reliability, or cloud cost?"},
-    {"id":"architecture", "questions":["What architecture experience do you have?"], "answer":"The sample profile describes a Java order service and an event processing prototype.", "evidenceIds":["orders","events"], "followUp":"What constraints matter most for your system?"},
-    {"id":"leadership", "questions":["Have you led a technical project?"], "answer":"Alex is listed as technical lead for the sample Order Service.", "evidenceIds":["orders"], "followUp":"What kind of technical leadership does the role need?"},
-    {"id":"cloud", "questions":["What cloud platforms have you used?"], "answer":"The sample Order Service lists AWS in its stack.", "evidenceIds":["orders"], "followUp":"Which cloud environment does your team use?"},
-    {"id":"database", "questions":["What database experience do you have?"], "answer":"The sample Order Service lists PostgreSQL in its stack.", "evidenceIds":["orders"], "followUp":"What data consistency requirements does the role have?"},
-    {"id":"frontend", "questions":["Do you have frontend experience?"], "answer":"Alex is listed as frontend engineer for the sample Operations Dashboard, built with TypeScript and React.", "evidenceIds":["dashboard"], "followUp":"What frontend challenges is your team working on?"},
-    {"id":"typescript", "questions":["What TypeScript experience do you have?"], "answer":"The sample Operations Dashboard lists TypeScript in its stack.", "evidenceIds":["dashboard"], "followUp":"Is TypeScript central to this role?"},
-    {"id":"react", "questions":["Have you used React?"], "answer":"The sample Operations Dashboard lists React in its stack.", "evidenceIds":["dashboard"], "followUp":"What kind of React application are you building?"},
-    {"id":"accessibility", "questions":["How have you considered accessibility?"], "answer":"The sample Operations Dashboard was designed around keyboard access and clear status information.", "evidenceIds":["dashboard"], "followUp":"What accessibility goals does your product have?"},
-    {"id":"reliability", "questions":["How do you approach reliability?"], "answer":"The sample Event Pipeline explores retries, idempotency, and failure recovery.", "evidenceIds":["events"], "followUp":"Which failure modes are most important to your team?"},
-    {"id":"idempotency", "questions":["Have you worked with idempotency?"], "answer":"The sample Event Pipeline prototype explores idempotency.", "evidenceIds":["events"], "followUp":"Where does your system need idempotent processing?"},
-    {"id":"retries", "questions":["Have you designed retry handling?"], "answer":"The sample Event Pipeline prototype explores retries and failure recovery.", "evidenceIds":["events"], "followUp":"What retry and recovery constraints does your team have?"},
-    {"id":"async", "questions":["Have you designed asynchronous systems?"], "answer":"The sample Order Service documents an asynchronous processing design.", "evidenceIds":["orders"], "followUp":"What is the expected workload for your system?"},
-    {"id":"operations", "questions":["What operations experience do you have?"], "answer":"The sample Order Service includes an operational runbook.", "evidenceIds":["orders"], "followUp":"How does your team handle production operations?"},
-    {"id":"runbook", "questions":["Have you written a runbook?"], "answer":"The sample Order Service includes an operational runbook.", "evidenceIds":["orders"], "followUp":"Which operational workflows need the most attention?"},
-    {"id":"projects", "questions":["What projects have you worked on?"], "answer":"The sample profile includes an Order Service, Event Pipeline, and Operations Dashboard.", "evidenceIds":["orders","events","dashboard"], "followUp":"Which project would be most relevant to your role?"},
-    {"id":"order-role", "questions":["What was your role on the Order Service?"], "answer":"Alex is listed as technical lead for the sample Order Service.", "evidenceIds":["orders"], "followUp":"What ownership would this role have?"},
-    {"id":"pipeline-role", "questions":["What was your role on the Event Pipeline?"], "answer":"Alex is listed as software engineer for the sample Event Pipeline.", "evidenceIds":["events"], "followUp":"What engineering responsibilities are you hiring for?"},
-    {"id":"dashboard-role", "questions":["What was your role on the Operations Dashboard?"], "answer":"Alex is listed as frontend engineer for the sample Operations Dashboard.", "evidenceIds":["dashboard"], "followUp":"How is frontend ownership organized on your team?"},
-    {"id":"messaging", "questions":["Do you have messaging experience?"], "answer":"The sample Event Pipeline lists messaging in its stack and explores retries and idempotency.", "evidenceIds":["events"], "followUp":"What messaging technology does your team use?"},
-    {"id":"tradeoffs", "questions":["What trade-offs have you documented?"], "answer":"The sample Event Pipeline explores retries, idempotency, and failure recovery; the case study is the place to inspect its design details.", "evidenceIds":["events"], "followUp":"Which trade-offs would you like to discuss?"},
-    {"id":"failure", "questions":["How have you handled failure recovery?"], "answer":"The sample Event Pipeline is a prototype that explores failure recovery.", "evidenceIds":["events"], "followUp":"What recovery objectives does your system have?"}
+    {"id":"focus", "questions":["What kind of engineer is Giap?","What is Giap's technical focus?"], "answer":"Giap is a software engineer focused on AI/ML infrastructure, distributed systems, backend reliability, and cloud deployment. His public work includes multimodal search, durable Go queues, real-time platforms, and layout-aware RAG.", "evidenceIds":["github-profile","patrollens","queuemaxxing","layout-rag"], "followUp":"Which part of the stack is most important for this role?"},
+    {"id":"ai", "questions":["What AI experience does Giap have?","Has Giap built RAG systems?"], "answer":"Giap's public projects include PatrolLens, an AI-powered multimodal evidence investigation system, and Layout-Aware RAG for long documents with tables and figures. His resume also describes multi-agent RAG and on-device AI work.", "evidenceIds":["patrollens","layout-rag","fin-agents"], "followUp":"Are you looking for model, retrieval, evaluation, or platform ownership?"},
+    {"id":"backend", "questions":["What backend systems has Giap built?","Does Giap have distributed-systems experience?"], "answer":"His public work includes a durable Go work queue with PostgreSQL CDC, an ASP.NET Core real-time booking platform, and backend-focused systems projects across Go, Java, C#, Python, and TypeScript.", "evidenceIds":["queuemaxxing","opsbook","github-profile"], "followUp":"What reliability or scale constraints should we discuss?"},
+    {"id":"cloud", "questions":["What cloud and infrastructure tools does Giap use?"], "answer":"Giap works with AWS, Azure, Docker, Kubernetes, Terraform, Linux, GitHub Actions, PostgreSQL, Redis, Kafka, Prometheus, Grafana, and OpenTelemetry. His public CI/CD project demonstrates Docker, Terraform, GitHub Actions, and AWS workflows.", "evidenceIds":["cicd","github-profile"], "followUp":"Which cloud environment does your team use?"},
+    {"id":"testing", "questions":["How does Giap approach software quality?","Does Giap write automated tests?"], "answer":"Testing and repeatable delivery are recurring themes in Giap's work. The public OpsBook repository documents 47 MSTest tests, and his public profile includes projects using CI/CD and automated verification.", "evidenceIds":["opsbook","cicd","github-profile"], "followUp":"What testing and release practices does your team follow?"},
+    {"id":"projects", "questions":["What projects has Giap worked on?","Can I see Giap's projects?"], "answer":"The strongest public examples are PatrolLens, Queuemaxxing, OpsBook Real-Time Booking Platform, Layout-Aware RAG, MealLine, and CI/CD Pipeline on AWS. Each project card links to its public repository.", "evidenceIds":["patrollens","queuemaxxing","opsbook","layout-rag","meal-line","cicd"], "followUp":"Which project would be most relevant to your role?"},
+    {"id":"education", "questions":["Where did Giap study?","What is Giap's academic background?"], "answer":"Giap is pursuing a B.S. in Computer Science with a minor in Mathematics at the University of Massachusetts Amherst, with a 3.75/4.0 GPA and expected graduation in May 2026.", "evidenceIds":["portfolio"], "followUp":"Would you like to discuss a specific technical or mathematical topic?"},
+    {"id":"contact", "questions":["How can I contact Giap?","Where can I find Giap online?"], "answer":"You can explore Giap's public GitHub profile, personal portfolio, and LinkedIn profile from the contact links on this site.", "evidenceIds":["github-profile","portfolio"], "followUp":"What would you like to discuss with Giap?"}
   ]
 }
